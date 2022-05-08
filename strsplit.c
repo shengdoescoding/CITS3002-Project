@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "rake_client_c.h"
+
 //  strsplit.c (v0.1), written by Chris.McDonald@uwa.edu.au, 2006-
 //  under licence - creativecommons.org/licenses/by-nc-sa/4.0/
 

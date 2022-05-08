@@ -1,1 +1,1 @@
-PORT = 3123
+HOST = host1 host2 host3 localhost

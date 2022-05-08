@@ -2,13 +2,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include "rake_client_c.h"
 
 #define RAKE_FILE_DIR "rakefiles/"
 #define MAX_LINE_LEN 128
 
 struct Rake_File{
     int port;
-    char *hosts;
+    int total_hosts;
+    char **hosts;
     int total_actionsets;
     struct Actionset *actset;
 } rake_file;
@@ -60,8 +62,8 @@ int main(int argc, char const *argv[])
      **/
 
     char line[MAX_LINE_LEN];
-    bool in_actionset = false;
-    int actionset_number;
+    // bool in_actionset = false;
+    // int actionset_number;
     while (fgets(line, MAX_LINE_LEN, fp)){
         // Ignore comments
         if(line[0] == '#'){
@@ -69,16 +71,24 @@ int main(int argc, char const *argv[])
         }
         // Read PORT number and store into structure
         if(strstr(line, "PORT") != NULL){
-            int port_number = strtol(strtok(line, "PORT = "), NULL, 10);
-            // Debug line below
-            printf("%i\n", port_number);
+            int nwords;
+            char **words = strsplit(line, &nwords);
+            int port_number = atoi(words[2]);
             rake_file.port = port_number;
         }
-
-        // if(strstr(line, "HOST") != NULL){
-        //     char *host_name = strtok(line, "HOST = ");
-        //     rake_file.hosts = malloc()
-        // }
+        // Read HOST and store into structure
+        if(strstr(line, "HOST") != NULL){
+            int nwords;
+            char **hosts = strsplit(line, &nwords);
+            rake_file.total_hosts = nwords - 2;
+            rake_file.hosts = malloc(rake_file.total_hosts * sizeof(char*));
+            int i = 0;
+            for(int j = 2; j < nwords; j++){
+                rake_file.hosts[i] = malloc(strlen(hosts[j]) * sizeof(char));
+                strcpy(rake_file.hosts[i], hosts[j]);
+                i++;
+            }
+        }
 
         // if(strstr(line, "actionset") != NULL){
         //     // Worrying way to convert char to int
@@ -106,6 +116,7 @@ int main(int argc, char const *argv[])
         }
     }
 
+    free(rake_file.hosts);
     free(rake_file_address);
     return 0;
 }
