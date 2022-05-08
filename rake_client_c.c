@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define RAKE_FILE_DIR "../rakefiles/"
+#define RAKE_FILE_DIR "rakefiles/"
 #define MAX_LINE_LEN 128
 
 struct Rake_File{
@@ -23,7 +23,6 @@ struct Action{
     char **required_files;
 };
 
-
 int main(int argc, char const *argv[])
 {
     if(argc <= 1){
@@ -38,19 +37,19 @@ int main(int argc, char const *argv[])
     char *temp_argv1;
     temp_argv1 = malloc(strlen(argv[1]) * sizeof(char));
     strcpy(temp_argv1, argv[1]);
-    char *rake_file;
-    rake_file = malloc((strlen(argv[1]) + strlen(RAKE_FILE_DIR)) * sizeof(char));
-    if(rake_file == NULL){
+    char *rake_file_address;
+    rake_file_address = malloc((strlen(argv[1]) + strlen(RAKE_FILE_DIR)) * sizeof(char));
+    if(rake_file_address == NULL){
         fprintf(stderr, "Fatal: failed to allocate memory for rake file address.\n");
         return EXIT_FAILURE;
     }
-    strcat(rake_file, RAKE_FILE_DIR);
-    strcat(rake_file, temp_argv1);
+    strcat(rake_file_address, RAKE_FILE_DIR);
+    strcat(rake_file_address, temp_argv1);
     free(temp_argv1);
-    // DEBUG FOR THIS SEGMENT
-    printf("%s\n", rake_file);
+    // // DEBUG FOR THIS SEGMENT
+    // printf("%s\n", rake_file_address);
     
-    FILE *fp = fopen(rake_file, "r");
+    FILE *fp = fopen(rake_file_address, "r");
     if (fp == NULL){
         perror("Unable to open file");
         return EXIT_FAILURE;
@@ -61,16 +60,31 @@ int main(int argc, char const *argv[])
      **/
 
     char line[MAX_LINE_LEN];
+    bool in_actionset = false;
+    int actionset_number;
     while (fgets(line, MAX_LINE_LEN, fp)){
         // Ignore comments
         if(line[0] == '#'){
             continue;
         }
-
-        if(strstr(line, "actionset") != NULL){
-            int actionset_number = line[9] - '0';
-            
+        // Read PORT number and store into structure
+        if(strstr(line, "PORT") != NULL){
+            int port_number = strtol(strtok(line, "PORT = "), NULL, 10);
+            // Debug line below
+            printf("%i\n", port_number);
+            rake_file.port = port_number;
         }
+
+        // if(strstr(line, "HOST") != NULL){
+        //     char *host_name = strtok(line, "HOST = ");
+        //     rake_file.hosts = malloc()
+        // }
+
+        // if(strstr(line, "actionset") != NULL){
+        //     // Worrying way to convert char to int
+        //     // Also still unused for now
+        //     actionset_number = line[9] - '0';
+        // }
 
         // Detect indentation
         // Assume one indentation is 4 spaces!
@@ -92,6 +106,6 @@ int main(int argc, char const *argv[])
         }
     }
 
-    free(rake_file);
+    free(rake_file_address);
     return 0;
 }
