@@ -1,1 +1,3 @@
-HOST = host1 host2 host3 localhost
+actionset1:
+    remote-cc -c program.c
+        requires program.c program.h allfunctions.h
