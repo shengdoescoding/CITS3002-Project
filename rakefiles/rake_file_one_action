@@ -1,3 +1,5 @@
-actionset1:
-    remote-cc -c program.c
-        requires program.c program.h allfunctions.h
+actionset1:            
+    cc -c program.c NO REMOTE
+        requires test.c awdawd.c
+    remote-cc -c test.c RENMOTE
+        requires REMOTEA.c aowiudaiowdj.c 123123717845aq.c

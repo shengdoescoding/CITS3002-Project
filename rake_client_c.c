@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <ctype.h>
 #include "rake_client_c.h"
 
 #define RAKE_FILE_DIR "rakefiles/"
@@ -16,7 +17,7 @@ struct Rake_File{
 } rake_file;
 struct Actionset{
     int total_actions;
-    struct Action **act;
+    struct Action *act;
 } actionset;
 struct Action{
     bool remote;
@@ -25,6 +26,32 @@ struct Action{
     char **required_files;
 } action;
 
+void init_rake_file(){
+    rake_file.port = -1;
+    rake_file.total_hosts = 0;
+    rake_file.total_actionsets = 0;
+    rake_file.hosts = NULL;
+    rake_file.actset = NULL;
+}
+
+void init_actionset(){
+    actionset.total_actions = 0;
+    actionset.act = NULL;
+}
+
+void init_action(){
+    action.remote = false;
+    action.command = NULL;
+    if(action.total_files != 0){
+        for(int i = 0; i < action.total_files; i++){
+            free(action.required_files[i]);
+        }
+        free(action.required_files);
+    }
+    action.required_files = NULL;
+    action.total_files = 0;
+}
+
 void mem_alloc_check(const void *p, char *var_name){
     if(p == NULL){
         fprintf(stderr, "Fatal: failed to allocate memory for %s", var_name);
@@ -32,25 +59,23 @@ void mem_alloc_check(const void *p, char *var_name){
     }
 }
 
-void init_rake_file(){
-    rake_file.port = -1;
-    rake_file.total_hosts = -1;
-    rake_file.total_actionsets = -1;
-    rake_file.hosts = NULL;
-    rake_file.actset = NULL;
+char *trim_white_space(char *str){
+    char *end;
+    while(isspace((unsigned char)*str)) str++;
+    if(*str == 0) {
+        return str;
+    }
+
+    // Trim trailing space
+    end = str + strlen(str) - 1;
+    while(end > str && isspace((unsigned char)*end)) end--;
+    end[1] = '\0';
+
+    return str;
 }
 
-void init_actionset(){
-    actionset.total_actions = -1;
-    actionset.act = NULL;
-}
-
-void init_action(){
-    action.remote = false;
-    action.command = malloc(1);
-    mem_alloc_check(action.command, "action.command");
-    action.total_files = -1;
-    action.required_files = NULL;
+bool prefix(const char *str, const char *pre){
+    return strncmp(pre, str, strlen(pre)) == 0;
 }
 
 int main(int argc, char const *argv[])
@@ -74,36 +99,45 @@ int main(int argc, char const *argv[])
     strcat(rake_file_address, RAKE_FILE_DIR);
     strcat(rake_file_address, temp_argv1);
     free(temp_argv1);
-    // // DEBUG FOR THIS SEGMENT
-    // printf("%s\n", rake_file_address);
     
+    init_rake_file();
+    init_actionset();
+    init_action();
+
     FILE *fp = fopen(rake_file_address, "r");
     if (fp == NULL){
         perror("Unable to open file");
         return EXIT_FAILURE;
     }
-
-    /**Opportunity here to do some file modification to optimise reading
-     * e.g. clear white spaces at the end of lines, clear empty lines etc.
-     **/
-    init_rake_file();
     char line[MAX_LINE_LEN];
     int actionset_number = 0;
     bool in_action = false;
     while (fgets(line, MAX_LINE_LEN, fp)){
+        // Detect indentation
+        // Assume one indentation is 4 spaces!
+        int temp_indentation_size = 0;
+        for(size_t i = 0; i < strlen(line); i++){
+            if(line[i] == ' '){
+                temp_indentation_size++;
+            }
+            else{
+                break;
+            }
+        }
+        char *line_no_whitespace = trim_white_space(line);
         // Ignore comments
-        if(line[0] == '#'){
+        if(line_no_whitespace[0] == '#'){
             continue;
         }
         // Read PORT number and store into structure
-        if(strstr(line, "PORT") != NULL){
+        if(strstr(line, "PORT") != NULL && temp_indentation_size == 0){
             int nwords;
             char **words = strsplit(line, &nwords);
             int port_number = atoi(words[2]);
             rake_file.port = port_number;
         }
         // Read HOST and store into structure
-        if(strstr(line, "HOST") != NULL){
+        if(strstr(line, "HOST") && temp_indentation_size == 0){
             int nwords;
             char **hosts = strsplit(line, &nwords);
             rake_file.total_hosts = nwords - 2;
@@ -118,43 +152,52 @@ int main(int argc, char const *argv[])
             }
         }
         // Detect actionset
-        if(strstr(line, "actionset") != NULL){
-            init_actionset();
-            // Worrying way to convert char to int, might need to be changed
+        if(strstr(line, "actionset") != NULL && temp_indentation_size == 0){
             actionset_number = line[9] - '0';
             in_action = false;
         }
 
-        // Detect indentation
-        // Assume one indentation is 4 spaces!
-        int temp_indentation_size = 0;
-        for(size_t i = 0; i < strlen(line); i++){
-            if(line[i] == ' '){
-                temp_indentation_size++;
-            }
-            else{
-                break;
-            }
-        }
         // Do something with the line knowing its indentation
         if(temp_indentation_size == 4 && in_action == false){
-            init_action();
-            if(strstr(line, "remote") != NULL){
-                action.remote = false;
-                free(action.command);
-                action.command = malloc(strlen(line) * sizeof(char));
+            // in_action == false, reset action first before populating
+            actionset.total_actions++;
+            in_action = true;
+            if(prefix(line_no_whitespace, "remote-") == true){
+                action.remote = true;
+                if(action.command != NULL){
+                    action.command = realloc(action.command, (strlen(line_no_whitespace) - 7) * sizeof(char));
+                }
+                else{
+                    action.command = malloc((strlen(line_no_whitespace) - 7) * sizeof(char));
+                }
                 mem_alloc_check(action.command, "action.command");
-                strcpy(action.command, line);
-                in_action = true;
-                actionset.total_actions++;
+                strcpy(action.command, &line_no_whitespace[7]);
+            }
+            else{
+                action.remote = false;
+                if(action.command != NULL){
+                    action.command = realloc(action.command, strlen(line_no_whitespace) * sizeof(char));
+                }
+                else{
+                    action.command = malloc(strlen(line_no_whitespace) * sizeof(char));
+                }
+                mem_alloc_check(action.command, "action.command");
+                strcpy(action.command, line_no_whitespace);
             }
         }
         if(temp_indentation_size == 8){
+            // Populate action
             int nwords;
             char **required_files = strsplit(line, &nwords);
             action.total_files = nwords - 1;
-            action.required_files = malloc(action.total_files * sizeof(char*));
+            if(action.required_files != NULL){
+                action.required_files = realloc(action.required_files, action.total_files * sizeof(char*));
+            }
+            else{
+                action.required_files = malloc(action.total_files * sizeof(char*));
+            }
             mem_alloc_check(action.required_files, "action.required_files");
+
             int i = 0;
             for(int j = 1; j < nwords; j++){
                 action.required_files[i] = malloc(strlen(required_files[j]) * sizeof(char));
@@ -162,40 +205,55 @@ int main(int argc, char const *argv[])
                 strcpy(action.required_files[i], required_files[j]);
                 i++;
             }
-            if(actionset.act == NULL){
-                actionset.act = malloc(sizeof(struct Action*));
-                mem_alloc_check(actionset.act, "actionset.act");
 
+            // // Add populated action to actionset
+            // if(actionset.act == NULL){
+            //     actionset.act = malloc(sizeof(action));
+            //     mem_alloc_check(actionset.act, "actionset.act");
+            // }
+            // else{
+            //     actionset.act = realloc(actionset.act, sizeof(actionset.act) + sizeof(action));
+            //     mem_alloc_check(actionset.act, "actionset.act");
+            // }
+            // actionset.act[actionset.total_actions - 1] = action;
+            // // printf("total_actions - 1 = %i\n", actionset.total_actions - 1);
+            // // printf("command from actionset = %s\n", actionset.act[actionset.total_actions - 1].command);
+            // // printf("address of actionset.act[actionset.total_actions - 1] = %p\n", actionset.act[actionset.total_actions - 1]);
+            // in_action = false;
+
+            // Free required_files, since num of files required for next action might change, losing pointers to larger index hence mem leak
+
+            for(int i = 0; i < action.total_files; i++){
+                free(action.required_files[i]);
+                action.required_files[i] = NULL;
             }
-            actionset.act[actionset.total_actions] = malloc(sizeof(&action));
-            mem_alloc_check(actionset.act, "actionset.act");
-            actionset.act[actionset.total_actions] = &action;
-            in_action = false;
         }
+
         // if(temp_indentation_size == 4 && in_action == true){
         //     if(actionset.act == NULL){
-        //         actionset.act = malloc(sizeof(action));
+        //         actionset.act = malloc(sizeof(struct Action*));
+        //         mem_alloc_check(actionset.act, "actionset.act");
+
+        //     }
+        //     else{
+        //         actionset.act = realloc(actionset.act, sizeof(struct Action*));
         //         mem_alloc_check(actionset.act, "actionset.act");
         //     }
-        //     init_action();
+        //     actionset.act[actionset.total_actions - 1] = malloc(sizeof(&action));
+        //     actionset.act[actionset.total_actions - 1], "actionset.act[actionset.total_actions]");
+        //     actionset.act[actionset.total_actions - 1] = &action;
+        //     in_action = false;
         // }
 
     }
 
-    // Debug loop
-    // for (int i = 0; i < actionset.act[0]->total_files; i++){
-    //     printf("%s", actionset.act[0]->required_files[i]);
-    // }
-
-    for (int i = 0; i < actionset.total_actions; i++){
-        free(actionset.act[i]);
-    }
-    free(actionset.act);
-    for(int i = 0; i < action.total_files; i++){
-        free(action.required_files[i]);
-    }
+    // Clean up action
     free(action.required_files);
+    action.required_files = NULL;
     free(action.command);
+    action.command = NULL;
+
+    free(actionset.act);
     for(int i = 0; i < rake_file.total_hosts; i++){
         free(rake_file.hosts[i]);
     }
