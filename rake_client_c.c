@@ -17,14 +17,14 @@ struct Rake_File{
 } rake_file;
 struct Actionset{
     int total_actions;
-    struct Action **act;
+    struct Action **acts;
 } actionset;
 struct Action{
     bool remote;
     char *command;
     int total_files;
     char **required_files;
-} action;
+};
 
 void init_rake_file(){
     rake_file.port = -1;
@@ -36,14 +36,17 @@ void init_rake_file(){
 
 void init_actionset(){
     actionset.total_actions = 0;
-    actionset.act = NULL;
+    actionset.acts = NULL;
 }
 
-void init_action(){
-    action.remote = false;
-    action.command = NULL;
-    action.required_files = NULL;
-    action.total_files = 0;
+struct Action * init_action(){
+    struct Action *action;
+    action = malloc(sizeof(struct Action));
+    action->remote = false;
+    action->command = NULL;
+    action->required_files = NULL;
+    action->total_files = 0;
+    return action;
 }
 
 void mem_alloc_check(const void *p, char *var_name){
@@ -80,6 +83,29 @@ void add_port(const char *line){
     free_words(port);
 }
 
+void add_command(struct Action *action, const char *line_no_whitespace){
+    if(prefix(line_no_whitespace, "remote-cc") == true){
+        action->remote = true;
+        action->command = realloc(action->command, (strlen(line_no_whitespace) - 7) * sizeof(char) + 1);
+        mem_alloc_check(action->command, "action.command");
+        strcpy(action->command, &line_no_whitespace[7]);
+    }
+    else{
+        action->remote = false;
+        action->command = realloc(action->command, strlen(line_no_whitespace) * sizeof(char) + 1);
+        mem_alloc_check(action->command, "action.command");
+        strcpy(action->command, line_no_whitespace);
+    }
+}
+
+void add_action_to_actionset(struct Action *action){
+    actionset.acts = realloc(actionset.acts, sizeof(struct Action *) * actionset.total_actions);
+    mem_alloc_check(actionset.acts, "actuibset.acts");
+    actionset.acts[actionset.total_actions - 1] = malloc(sizeof(struct Action));
+    mem_alloc_check(actionset.acts[actionset.total_actions - 1], "actionset.acts[actionset.total_actions - 1]");
+    actionset.acts[actionset.total_actions - 1] = action;
+}
+
 void add_hosts(const char *line){
     int nwords;
     char **hosts = strsplit(line, &nwords);
@@ -108,7 +134,7 @@ int main(int argc, char const *argv[])
     }
 
     char *temp_argv1;
-    temp_argv1 = malloc(strlen(argv[1]) * sizeof(char) + 1);    // Although sizeof(char) == 1 and is thus redundant, it will be kept regardless for readibility
+    temp_argv1 = malloc(strlen(argv[1]) * sizeof(char) + 1);
     mem_alloc_check(temp_argv1, "temp_argv1");
     strcpy(temp_argv1, argv[1]);
     char *rake_file_address;
@@ -120,7 +146,6 @@ int main(int argc, char const *argv[])
     
     init_rake_file();
     init_actionset();
-    init_action();
 
     FILE *fp = fopen(rake_file_address, "r");
     if (fp == NULL){
@@ -166,71 +191,45 @@ int main(int argc, char const *argv[])
             in_action = false;
         }
 
-        // // Detect command
-        // if(temp_indentation_size == 4 && in_action == false){
-        //     // in_action == false, reset action first before populating        
-        //     actionset.total_actions++;
-        //     in_action = true;
-        //     if(prefix(line_no_whitespace, "remote-cc") == true){
-        //         action.remote = true;
-        //         action.command = realloc(action.command, (strlen(line_no_whitespace) - 7) * sizeof(char) + 1);
-        //         mem_alloc_check(action.command, "action.command");
-        //         strcpy(action.command, &line_no_whitespace[7]);
-        //     }
-        //     else{
-        //         action.remote = false;
-        //         action.command = realloc(action.command, strlen(line_no_whitespace) * sizeof(char) + 1);
-        //         mem_alloc_check(action.command, "action.command");
-        //         strcpy(action.command, line_no_whitespace);
-        //     }
-        //     printf("command = %s\n", action.command);
-        // }
+        // Detect command
+        if(temp_indentation_size == 4 && in_action == false){
+            // in_action == false, reset action first before populating
+            struct Action *action = init_action();        
+            actionset.total_actions++;
+            in_action = true;
+            add_command(action, line_no_whitespace);
+            // Store into actionset
+            add_action_to_actionset(action);
+        }
 
-        // if(temp_indentation_size == 8){
-        //     // Populate action
-        //     int nwords;
-        //     char **required_files = strsplit(line, &nwords);
-        //     action.total_files = nwords - 1;
-        //     action.required_files = realloc(action.required_files, action.total_files * sizeof(char*));
-        //     mem_alloc_check(action.required_files, "action.required_files");
+        if(temp_indentation_size == 8){
+            // Populate action in actionset with required files
+            int nwords;
+            char **required_files = strsplit(line, &nwords);
+            actionset.acts[actionset.total_actions - 1]->total_files = nwords - 1;
+            actionset.acts[actionset.total_actions - 1]->required_files = malloc(actionset.acts[actionset.total_actions - 1]->total_files * sizeof(char*));
+            mem_alloc_check(actionset.acts[actionset.total_actions - 1]->required_files, "actionset.acts[actionset.total_actions - 1]->required_files");
 
-        //     int i = 0;
-        //     for(int j = 1; j < nwords; j++){
-        //         action.required_files[i] = malloc(strlen(required_files[j]) * sizeof(char) + 1);
-        //         mem_alloc_check(action.required_files[i], "action.required_files[i]");
-        //         strcpy(action.required_files[i], required_files[j]);
-        //         i++;
-        //     }
+            int i = 0;
+            for(int j = 1; j < nwords; j++){
+                actionset.acts[actionset.total_actions - 1]->required_files[i] = malloc(strlen(required_files[j]) * sizeof(char) + 1);
+                mem_alloc_check(actionset.acts[actionset.total_actions - 1]->required_files[i], "actionset.acts[actionset.total_actions - 1]->required_files[i]");
+                strcpy(actionset.acts[actionset.total_actions - 1]->required_files[i], required_files[j]);
+                i++;
+            }
 
-        //     // // Add populated action to actionset
-        //     // actionset.act = realloc(actionset.act, actionset.total_actions * sizeof(*action));
-        //     // mem_alloc_check(actionset.act, "actionset.act");
-        //     // actionset.act[actionset.total_actions - 1] = action;
-        //     // in_action = false;
-
-        //     // Clean up
-        //     for(int i = 0; i < action.total_files; i++){
-        //         free(action.required_files[i]);
-        //         action.required_files[i] = NULL;
-        //     }
-        //     free_words(required_files);
-        // }
+            free_words(required_files);
+        }
         
-        // // if(temp_indentation_size == 4 && in_action == true){
-        // //     if(actionset.act == NULL){
-        // //         actionset.act = malloc(sizeof(struct Action*));
-        // //         mem_alloc_check(actionset.act, "actionset.act");
+        if(temp_indentation_size == 4 && in_action == true){
+            struct Action *action = init_action();        
+            actionset.total_actions++;
+            in_action = false;
+            add_command(action, line_no_whitespace);
 
-        // //     }
-        // //     else{
-        // //         actionset.act = realloc(actionset.act, sizeof(struct Action*));
-        // //         mem_alloc_check(actionset.act, "actionset.act");
-        // //     }
-        // //     actionset.act[actionset.total_actions - 1] = malloc(sizeof(&action));
-        // //     actionset.act[actionset.total_actions - 1], "actionset.act[actionset.total_actions]");
-        // //     actionset.act[actionset.total_actions - 1] = &action;
-        // //     in_action = false;
-        // // }
+            // Store into actionset
+            add_action_to_actionset(action);
+        }
 
     }
 
@@ -239,19 +238,20 @@ int main(int argc, char const *argv[])
     {
         printf("hosts = %s\n", rake_file.hosts[i]);
     }
+
+    for (int i = 0; i < actionset.total_actions; i++)
+    {
+        for (int j = 0; j < actionset.acts[i]->total_files; j++)
+        {
+            printf("actionset acts commands = %s\n", actionset.acts[i]->command);
+            printf("actionset acts total files = %s\n", actionset.acts[i]->required_files[j]);
+        }
+        
+    }
     
 
     // Clean up
     fclose(fp);
-
-    // // if(action.required_files != NULL){
-    // //     free(action.required_files);
-    // // }
-    // // if(action.command != NULL){
-    // //     free(action.command);
-    // // }
-
-    free(actionset.act);
 
     if(rake_file.hosts != NULL){
         for(int i = 0; i < rake_file.total_hosts; i++){
