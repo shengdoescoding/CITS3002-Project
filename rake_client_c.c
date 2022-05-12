@@ -104,7 +104,7 @@ void add_actionset_to_rakefile(struct Actionset *actionset){
     mem_alloc_check(rake_file.actsets, "rake_file.actsets");
     rake_file.actsets[CURR_ACTSET_INDEX] = malloc(sizeof(struct Actionset));
     mem_alloc_check(rake_file.actsets[CURR_ACTSET_INDEX], "rake_file.actsets[CURR_ACTSET_INDEX]");
-    rake_file.actsets[CURR_ACTSET_INDEX] = actionset;
+    *(rake_file.actsets[CURR_ACTSET_INDEX]) = *actionset;
 }
 
 void add_action_to_actionset(struct Action *action){
@@ -113,7 +113,7 @@ void add_action_to_actionset(struct Action *action){
 
     rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX] = malloc(sizeof(struct Action));
     mem_alloc_check(rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX], "rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX]");
-    rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX] = action;
+    *(rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX]) = *action;
 }
 
 void add_hosts(const char *line){
@@ -199,6 +199,7 @@ int main(int argc, char const *argv[])
             rake_file.total_actionsets++;
             CURR_ACTSET_INDEX = rake_file.total_actionsets - 1;
             add_actionset_to_rakefile(actionset);
+            free(actionset);
         }
 
         // Detect command
@@ -211,6 +212,7 @@ int main(int argc, char const *argv[])
             add_command(action, line_no_whitespace);
             // Store into actionset
             add_action_to_actionset(action);
+            free(action);
         }
 
         if(temp_indentation_size == 8){
@@ -239,9 +241,10 @@ int main(int argc, char const *argv[])
     {
         for (int j = 0; j < rake_file.actsets[i]->total_actions; j++)
         {
+            printf("rakefile actionset %i, action %i, command = %s\n", i, j, rake_file.actsets[i]->acts[j]->command);
             for (int x = 0; x < rake_file.actsets[i]->acts[j]->total_files; x++)
             {
-
+                printf("rakefile actionset %i, action %i required files = %s\n", i, j, rake_file.actsets[i]->acts[j]->required_files[x]);
             }
         }
     }
