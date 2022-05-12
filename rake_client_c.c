@@ -110,9 +110,9 @@ void add_actionset_to_rakefile(struct Actionset *actionset){
 void add_action_to_actionset(struct Action *action){
     rake_file.actsets[CURR_ACTSET_INDEX]->acts = realloc(rake_file.actsets[CURR_ACTSET_INDEX]->acts, sizeof(struct Action *) * rake_file.actsets[CURR_ACTSET_INDEX]->total_actions);
     mem_alloc_check(rake_file.actsets[CURR_ACTSET_INDEX]->acts, "rake_file.actsets[CURR_ACTSET_INDEX]->acts");
-
     rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX] = malloc(sizeof(struct Action));
     mem_alloc_check(rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX], "rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX]");
+    //*() = *_ copy contents of action to rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX] 
     *(rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX]) = *action;
 }
 
