@@ -154,7 +154,6 @@ int main(int argc, char const *argv[])
     }
     char line[MAX_LINE_LEN];
     int actionset_number = 0;
-    bool in_action = false;
     while (fgets(line, MAX_LINE_LEN, fp)){
         // Detect indentation
         // Assume one indentation is 4 spaces!
@@ -188,15 +187,12 @@ int main(int argc, char const *argv[])
         // Detect actionset
         if(strstr(line, "actionset") != NULL && temp_indentation_size == 0){
             actionset_number = line[9] - '0';
-            in_action = false;
         }
 
         // Detect command
-        if(temp_indentation_size == 4 && in_action == false){
-            // in_action == false, reset action first before populating
+        if(temp_indentation_size == 4){
             struct Action *action = init_action();        
             actionset.total_actions++;
-            in_action = true;
             add_command(action, line_no_whitespace);
             // Store into actionset
             add_action_to_actionset(action);
@@ -220,30 +216,19 @@ int main(int argc, char const *argv[])
 
             free_words(required_files);
         }
-        
-        if(temp_indentation_size == 4 && in_action == true){
-            struct Action *action = init_action();        
-            actionset.total_actions++;
-            in_action = false;
-            add_command(action, line_no_whitespace);
-
-            // Store into actionset
-            add_action_to_actionset(action);
-        }
-
     }
 
+    // Debug
     printf("port = %i\n", rake_file.port);
     for (int i = 0; i < rake_file.total_hosts; i++)
     {
         printf("hosts = %s\n", rake_file.hosts[i]);
     }
-
     for (int i = 0; i < actionset.total_actions; i++)
     {
+        printf("actionset acts commands = %s\n", actionset.acts[i]->command);
         for (int j = 0; j < actionset.acts[i]->total_files; j++)
         {
-            printf("actionset acts commands = %s\n", actionset.acts[i]->command);
             printf("actionset acts total files = %s\n", actionset.acts[i]->required_files[j]);
         }
         
@@ -252,6 +237,14 @@ int main(int argc, char const *argv[])
 
     // Clean up
     fclose(fp);
+
+    for(int i = 0; i < actionset.total_actions; i++){
+        for(int j = 0; j < actionset.acts[i]->total_files; j++){
+            free(actionset.acts[i]->required_files[j]);
+        }
+        free(actionset.acts[i]->required_files);
+        free(actionset.acts[i]->command);
+    }
 
     if(rake_file.hosts != NULL){
         for(int i = 0; i < rake_file.total_hosts; i++){
