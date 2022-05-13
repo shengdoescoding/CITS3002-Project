@@ -102,18 +102,13 @@ void add_command(struct Action *action, const char *line_no_whitespace){
 void add_actionset_to_rakefile(struct Actionset *actionset){
     rake_file.actsets = realloc(rake_file.actsets, sizeof(struct Actionset *) * rake_file.total_actionsets);
     mem_alloc_check(rake_file.actsets, "rake_file.actsets");
-    rake_file.actsets[CURR_ACTSET_INDEX] = malloc(sizeof(struct Actionset));
-    mem_alloc_check(rake_file.actsets[CURR_ACTSET_INDEX], "rake_file.actsets[CURR_ACTSET_INDEX]");
-    *(rake_file.actsets[CURR_ACTSET_INDEX]) = *actionset;
+    rake_file.actsets[CURR_ACTSET_INDEX] = actionset;
 }
 
 void add_action_to_actionset(struct Action *action){
     rake_file.actsets[CURR_ACTSET_INDEX]->acts = realloc(rake_file.actsets[CURR_ACTSET_INDEX]->acts, sizeof(struct Action *) * rake_file.actsets[CURR_ACTSET_INDEX]->total_actions);
     mem_alloc_check(rake_file.actsets[CURR_ACTSET_INDEX]->acts, "rake_file.actsets[CURR_ACTSET_INDEX]->acts");
-    rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX] = malloc(sizeof(struct Action));
-    mem_alloc_check(rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX], "rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX]");
-    //*() = *_ copy contents of action to rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX] 
-    *(rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX]) = *action;
+    rake_file.actsets[CURR_ACTSET_INDEX]->acts[CURR_ACT_INDEX] = action;
 }
 
 void add_hosts(const char *line){
@@ -199,7 +194,6 @@ int main(int argc, char const *argv[])
             rake_file.total_actionsets++;
             CURR_ACTSET_INDEX = rake_file.total_actionsets - 1;
             add_actionset_to_rakefile(actionset);
-            free(actionset);
         }
 
         // Detect command
@@ -210,9 +204,7 @@ int main(int argc, char const *argv[])
             rake_file.actsets[CURR_ACTSET_INDEX]->total_actions++;
             CURR_ACT_INDEX = rake_file.actsets[CURR_ACTSET_INDEX]->total_actions - 1;
             add_command(action, line_no_whitespace);
-            // Store into actionset
             add_action_to_actionset(action);
-            free(action);
         }
 
         if(temp_indentation_size == 8){
