@@ -14,7 +14,7 @@ struct Rake_File{
     int port;
     int total_hosts;
     char **hosts;
-    int total_actionsets;   // Determine at the end of the wile loop by -1 from the last actionset number
+    int total_actionsets;
     struct Actionset **actsets;
 } rake_file;
 
@@ -126,6 +126,7 @@ void add_hosts(const char *line){
     }
     free_words(hosts);
 }
+
 int main(int argc, char const *argv[])
 {
     if(argc <= 1){
@@ -157,18 +158,6 @@ int main(int argc, char const *argv[])
     }
     char line[MAX_LINE_LEN];
     while (fgets(line, MAX_LINE_LEN, fp)){
-        // Detect indentation
-        // Assume one indentation is 4 spaces!
-        int temp_indentation_size = 0;
-        for(size_t i = 0; i < strlen(line); i++){
-            if(line[i] == ' '){
-                temp_indentation_size++;
-            }
-            else{
-                break;
-            }
-        }
-
         char *line_no_whitespace = trim_white_space(line);
 
         // Ignore comments
@@ -177,17 +166,17 @@ int main(int argc, char const *argv[])
         }
 
         // Read PORT number and store into structure
-        if(strstr(line, "PORT") != NULL && temp_indentation_size == 0){
+        if(strstr(line, "PORT") != NULL && line[0] != '\t'){
             add_port(line);
         }
 
         // Read HOST and store into structure
-        if(strstr(line, "HOST") && temp_indentation_size == 0){
+        if(strstr(line, "HOST") && line[0] != '\t'){
             add_hosts(line);
         }
 
         // Detect actionset
-        if(strstr(line, "actionset") != NULL && temp_indentation_size == 0){
+        if(strstr(line, "actionset") != NULL && line[0] != '\t'){
             struct Actionset *actionset = malloc(sizeof(*actionset));
             mem_alloc_check(actionset, "actionset");
             init_actionset(actionset);
@@ -197,7 +186,7 @@ int main(int argc, char const *argv[])
         }
 
         // Detect command
-        if(temp_indentation_size == 4){
+        if(line[0] == '\t' && line[1] != '\t'){
             struct Action *action = malloc(sizeof(*action));
             mem_alloc_check(action, "action");
             init_action(action);
@@ -207,7 +196,8 @@ int main(int argc, char const *argv[])
             add_action_to_actionset(action);
         }
 
-        if(temp_indentation_size == 8){
+		// Detect required files
+        if(line[0] == '\t' && line[1] == '\t'){
             // Populate action in actionset with required files
             int nwords;
             char **required_files = strsplit(line, &nwords);
@@ -226,25 +216,32 @@ int main(int argc, char const *argv[])
             free_words(required_files);
         }
     }
+    fclose(fp);
+    free(rake_file_address);
+
+    // Execute Commands
+    
 
     // Debug
-
     for (int i = 0; i < rake_file.total_actionsets; i++)
     {
         for (int j = 0; j < rake_file.actsets[i]->total_actions; j++)
         {
             printf("rakefile actionset %i, action %i, command = %s\n", i, j, rake_file.actsets[i]->acts[j]->command);
+            printf("rakefile actionset %i, action %i, remote = %i\n", i, j, rake_file.actsets[i]->acts[j]->remote);
             for (int x = 0; x < rake_file.actsets[i]->acts[j]->total_files; x++)
             {
                 printf("rakefile actionset %i, action %i required files = %s\n", i, j, rake_file.actsets[i]->acts[j]->required_files[x]);
             }
         }
     }
+	for (int i = 0; i < rake_file.total_hosts; i++)
+	{
+		printf("rakefile hosts = %s\n", rake_file.hosts[i]);
+	}
+	printf("rakefile port = %i\n", rake_file.port);
 
     // Clean up
-    fclose(fp);
-    free(rake_file_address);
-    
     for (int i = 0; i < rake_file.total_actionsets; i++)
     {
         for (int j = 0; j < rake_file.actsets[i]->total_actions; j++)
