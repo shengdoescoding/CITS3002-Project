@@ -165,42 +165,38 @@ void parse_rf(const char *rake_file_address) {
 	fclose(fp);
 }
 
-// void execute_actionset() {
-// 	pid_t PID;
-// 	int child_exit_status;
-// 	// Execute Commands
-// 	for (int i = 0; i < rake_file.total_actionsets; i++) {
-// 		for (int j = 0; j < rake_file.actsets[i]->total_actions; j++) {
-// 			int nwords;
-// 			char **command_args = strsplit(rake_file.actsets[i]->acts[j]->command, &nwords);
-
-// 			char *prog_name = command_args[0];
-// 			char **args;
-// 			args = malloc((nwords - 1) * sizeof(char));
-// 			int i = 0;
-// 			for (int j = 1; j < nwords; j++) {
-// 				args[i] = malloc(strlen(command_args[j]) * sizeof(char) + 1);
-// 				strcpy(args[i], command_args[j]);
-// 				i++;
-// 			}
-// 			free(command_args);
-
-// 			PID = fork();
-// 			// PID == 0, in child process. PID > 0, in parent process.
-// 			if (PID == 0) {
-// 				printf("Child PID = %d\n", getpid());
-// 				exit(EXIT_SUCCESS);
-// 				// execvp();
-// 			} else if (PID > 0) {
-// 				wait(&child_exit_status);
-// 				printf("Child process exited with %d status\n", WEXITSTATUS(child_exit_status));
-// 			} else {
-// 				perror("Failed to fork");
-// 				exit(EXIT_FAILURE);
-// 			}
-// 		}
-// 	}
-// }
+void execute_actionset() {
+	pid_t PID;
+	int child_exit_status;
+	for (int i = 0; i < rake_file.total_actionsets; i++) {
+		for (int j = 0; j < rake_file.actsets[i]->total_actions; j++) {
+			int nwords;
+			char **command_args = strsplit(rake_file.actsets[i]->acts[j]->command, &nwords);
+			char *prog_name = command_args[0];
+			command_args[nwords] = NULL;
+			nwords++;
+			PID = fork();
+			// PID == 0, in child process. PID > 0, in parent process.
+			if (PID == 0) {
+				printf("Child PID = %d\n", getpid());
+				errno = 0;
+				execvp(prog_name, command_args);
+				if(errno != 0){
+					perror("Fatal: execvp failed!");
+					exit(EXIT_FAILURE);
+				}
+				exit(EXIT_SUCCESS);
+			} else if (PID > 0) {
+				wait(&child_exit_status);
+				printf("Child process exited with %d status\n", WEXITSTATUS(child_exit_status));
+				free_words(command_args);
+			} else {
+				perror("Failed to fork");
+				exit(EXIT_FAILURE);
+			}
+		}
+	}
+}
 
 int main(int argc, char const *argv[]) {
 	if (argc <= 1) {
@@ -225,6 +221,8 @@ int main(int argc, char const *argv[]) {
 	init_rake_file();
 	parse_rf(rake_file_address);
 	free(rake_file_address);
+
+	execute_actionset();
 
 	// Debug
 	for (int i = 0; i < rake_file.total_actionsets; i++) {

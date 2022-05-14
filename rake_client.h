@@ -12,6 +12,7 @@ void free_words(char **words);
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <errno.h>
 #define RAKE_FILE_DIR "rakefiles/"
 #define MAX_LINE_LEN 128
 
