@@ -55,7 +55,7 @@ void add_port(const char *line) {
 }
 
 void add_command(struct Action *action, const char *line_no_whitespace) {
-	if (prefix(line_no_whitespace, "remote-cc") == true) {
+	if (prefix(line_no_whitespace, "remote-") == true) {
 		action->remote = true;
 		action->command = realloc(action->command, (strlen(line_no_whitespace) - 7) * sizeof(char) + 1);
 		mem_alloc_check(action->command, "action.command");
@@ -169,6 +169,7 @@ void execute_actionset() {
 	pid_t PID;
 	int child_exit_status;
 	for (int i = 0; i < rake_file.total_actionsets; i++) {
+		int terminated_child = 0;
 		for (int j = 0; j < rake_file.actsets[i]->total_actions; j++) {
 			int nwords;
 			char **command_args = strsplit(rake_file.actsets[i]->acts[j]->command, &nwords);
@@ -187,12 +188,18 @@ void execute_actionset() {
 				}
 				exit(EXIT_SUCCESS);
 			} else if (PID > 0) {
-				wait(&child_exit_status);
-				printf("Child process exited with %d status\n", WEXITSTATUS(child_exit_status));
+				// wait(&child_exit_status);
+				
 				free_words(command_args);
 			} else {
 				perror("Failed to fork");
 				exit(EXIT_FAILURE);
+			}
+		}
+		while(terminated_child != rake_file.actsets[i]->total_actions){
+			if(wait(&child_exit_status)){
+				printf("Child process exited with %d status\n", WEXITSTATUS(child_exit_status));
+				terminated_child++;
 			}
 		}
 	}
@@ -224,20 +231,20 @@ int main(int argc, char const *argv[]) {
 
 	execute_actionset();
 
-	// Debug
-	for (int i = 0; i < rake_file.total_actionsets; i++) {
-		for (int j = 0; j < rake_file.actsets[i]->total_actions; j++) {
-			printf("rakefile actionset %i, action %i, command = %s\n", i, j, rake_file.actsets[i]->acts[j]->command);
-			printf("rakefile actionset %i, action %i, remote = %i\n", i, j, rake_file.actsets[i]->acts[j]->remote);
-			for (int k = 0; k < rake_file.actsets[i]->acts[j]->total_files; k++) {
-				printf("rakefile actionset %i, action %i required files = %s\n", i, j, rake_file.actsets[i]->acts[j]->required_files[k]);
-			}
-		}
-	}
-	for (int i = 0; i < rake_file.total_hosts; i++) {
-		printf("rakefile hosts = %s\n", rake_file.hosts[i]);
-	}
-	printf("rakefile port = %i\n", rake_file.port);
+	// // Debug
+	// for (int i = 0; i < rake_file.total_actionsets; i++) {
+	// 	for (int j = 0; j < rake_file.actsets[i]->total_actions; j++) {
+	// 		printf("rakefile actionset %i, action %i, command = %s\n", i, j, rake_file.actsets[i]->acts[j]->command);
+	// 		printf("rakefile actionset %i, action %i, remote = %i\n", i, j, rake_file.actsets[i]->acts[j]->remote);
+	// 		for (int k = 0; k < rake_file.actsets[i]->acts[j]->total_files; k++) {
+	// 			printf("rakefile actionset %i, action %i required files = %s\n", i, j, rake_file.actsets[i]->acts[j]->required_files[k]);
+	// 		}
+	// 	}
+	// }
+	// for (int i = 0; i < rake_file.total_hosts; i++) {
+	// 	printf("rakefile hosts = %s\n", rake_file.hosts[i]);
+	// }
+	// printf("rakefile port = %i\n", rake_file.port);
 
 	// Clean up
 	for (int i = 0; i < rake_file.total_actionsets; i++) {
