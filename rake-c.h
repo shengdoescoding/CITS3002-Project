@@ -1,5 +1,5 @@
-#ifndef rake_client_h
-#define rake_client_h
+#ifndef rake_c_h
+#define rake_c_h
 
 int CURR_ACTSET_INDEX;
 int CURR_ACT_INDEX;
@@ -10,10 +10,10 @@ void free_words(char **words);
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <errno.h>
-#define RAKE_FILE_DIR "rakefiles/"
 #define MAX_LINE_LEN 128
 
 struct Rake_File {

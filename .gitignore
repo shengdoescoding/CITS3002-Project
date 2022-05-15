@@ -2,3 +2,4 @@
 build/
 rakefiles/
 .clang-format
+test_files/

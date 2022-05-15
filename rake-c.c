@@ -1,4 +1,4 @@
-#include "rake_client.h"
+#include "rake-c.h"
 
 void init_rake_file() {
 	rake_file.port = -1;
@@ -198,6 +198,7 @@ void execute_actionset() {
 		}
 		while(terminated_child != rake_file.actsets[i]->total_actions){
 			if(wait(&child_exit_status)){
+				// if fail do something... 
 				printf("Child process exited with %d status\n", WEXITSTATUS(child_exit_status));
 				terminated_child++;
 			}
@@ -207,29 +208,25 @@ void execute_actionset() {
 
 int main(int argc, char const *argv[]) {
 	if (argc <= 1) {
-		fprintf(stderr, "Fatal: must provide rakefile name");
+		fprintf(stderr, "Fatal: must provide rakefile\n");
 		exit(EXIT_FAILURE);
 	} else if (argc > 2) {
-		fprintf(stderr, "Fatal: only provide one rakefile");
+		fprintf(stderr, "Fatal: only provide one rakefile\n");
 		exit(EXIT_FAILURE);
 	}
 
-	char *temp_argv1;
-	temp_argv1 = malloc(strlen(argv[1]) * sizeof(char) + 1);
-	mem_alloc_check(temp_argv1, "temp_argv1");
-	strcpy(temp_argv1, argv[1]);
 	char *rake_file_address;
-	rake_file_address = malloc((strlen(argv[1]) + strlen(RAKE_FILE_DIR)) * sizeof(char) + 1);
+	rake_file_address = malloc(strlen(argv[1]) * sizeof(char) + 1);
 	mem_alloc_check(rake_file_address, "rake_file_address");
-	strcpy(rake_file_address, RAKE_FILE_DIR);
-	strcat(rake_file_address, temp_argv1);
-	free(temp_argv1);
+	strcpy(rake_file_address, argv[1]);
 
 	init_rake_file();
 	parse_rf(rake_file_address);
 	free(rake_file_address);
 
 	execute_actionset();
+
+	
 
 	// // Debug
 	// for (int i = 0; i < rake_file.total_actionsets; i++) {
