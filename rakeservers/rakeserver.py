@@ -1,7 +1,7 @@
 import socket
 
 HOST = "127.0.0.1"
-PORT = 65432
+PORT = 4321
 
 def main():
 	# AF_INET = IPv4, SOCK_STREM = TCP
