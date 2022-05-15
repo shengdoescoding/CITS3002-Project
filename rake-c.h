@@ -5,6 +5,7 @@ int CURR_ACTSET_INDEX;
 int CURR_ACT_INDEX;
 char **strsplit(const char *str, int *nwords);
 void free_words(char **words);
+#include<arpa/inet.h>
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>

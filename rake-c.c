@@ -23,7 +23,6 @@ void init_action(struct Action *action) {
 void mem_alloc_check(const void *p, char *var_name) {
 	if (p == NULL) {
 		fprintf(stderr, "Fatal: failed to allocate memory for %s", var_name);
-		exit(EXIT_FAILURE);
 	}
 }
 
@@ -100,7 +99,6 @@ void parse_rf(const char *rake_file_address) {
 	FILE *fp = fopen(rake_file_address, "r");
 	if (fp == NULL) {
 		perror("Unable to open file");
-		exit(EXIT_FAILURE);
 	}
 	char line[MAX_LINE_LEN];
 	while (fgets(line, MAX_LINE_LEN, fp)) {
@@ -177,23 +175,17 @@ void execute_actionset() {
 			command_args[nwords] = NULL;
 			nwords++;
 			PID = fork();
-			// PID == 0, in child process. PID > 0, in parent process.
 			if (PID == 0) {
 				printf("Child PID = %d\n", getpid());
 				errno = 0;
 				execvp(prog_name, command_args);
 				if(errno != 0){
 					perror("Fatal: execvp failed!");
-					exit(EXIT_FAILURE);
 				}
-				exit(EXIT_SUCCESS);
 			} else if (PID > 0) {
-				// wait(&child_exit_status);
-				
 				free_words(command_args);
 			} else {
 				perror("Failed to fork");
-				exit(EXIT_FAILURE);
 			}
 		}
 		while(terminated_child != rake_file.actsets[i]->total_actions){
@@ -204,6 +196,16 @@ void execute_actionset() {
 			}
 		}
 	}
+}
+
+char *strip_port(char *host){
+	char *host_no_port;
+	host_no_port = malloc(strlen(host) * sizeof(char) + 1);
+	mem_alloc_check(host_no_port, "host_no_port");
+	strcpy(host_no_port, host);
+	char *colon_index = strchr(host_no_port, ':');
+	*colon_index = '\0';
+	return host_no_port;
 }
 
 int main(int argc, char const *argv[]) {
@@ -224,8 +226,40 @@ int main(int argc, char const *argv[]) {
 	parse_rf(rake_file_address);
 	free(rake_file_address);
 
-	execute_actionset();
+	// execute_actionset();
 
+	int socket_desc[rake_file.total_hosts];
+	struct sockaddr_in server[rake_file.total_hosts];
+	for (int i = 0; i < rake_file.total_hosts; i++)
+	{
+		socket_desc[i] = socket(AF_INET, SOCK_STREAM, 0);
+		if(socket_desc[i] < 0){
+			perror("Fatal: Failed to create socket\n");
+		}
+
+		server[i].sin_family = AF_INET;
+		{	
+			char *colon = strchr(rake_file.hosts[i], ':');
+			if(colon != NULL){
+				char *host_no_port = strip_port(rake_file.hosts[i]);
+				server[i].sin_addr.s_addr = inet_addr(host_no_port);
+				free(host_no_port);
+				server[i].sin_port = htons(atoi(colon + 1));
+			}
+			else{
+				server[i].sin_port = htons(rake_file.port);
+				server[i].sin_addr.s_addr = inet_addr(rake_file.hosts[i]);
+			}
+		}
+		int conn_stat = connect(socket_desc[i], (struct sockaddr *) &server[i], sizeof(server[i]));
+		if(conn_stat < 0){
+			printf("Connecting to Address = %s, Port = %i\n", rake_file.hosts[i], ntohs(server[i].sin_port));
+			perror("Failed to connect to server");
+		}
+		else{
+			printf("Connected to Address = %s, Port = %i\n", rake_file.hosts[i], ntohs(server[i].sin_port));
+		}
+	}
 	
 
 	// // Debug
@@ -266,5 +300,5 @@ int main(int argc, char const *argv[]) {
 		}
 		free(rake_file.hosts);
 	}
-	return 0;
+	exit(errno);
 }
