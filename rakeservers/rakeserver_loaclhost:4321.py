@@ -20,7 +20,9 @@ def main():
 				data = conn.recv(1024) # we will read at most 1024 bytes
 				if not data:
 					break
-				conn.sendall(data)
+				decoded = data.decode('utf-8')
+				print(f"{decoded}")
+				# conn.sendall(b"local host")
 
 
 if __name__ == '__main__':

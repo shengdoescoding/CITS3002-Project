@@ -208,6 +208,25 @@ char *strip_port(char *host){
 	return host_no_port;
 }
 
+int sendall(int s, char *buf, int *len){
+	int total = 0;
+	int bytesleft = *len;
+	int n;
+
+	while(total < *len){
+		n = send(s, buf+total, bytesleft, 0);
+		if(n == -1){
+			break;
+		}
+		total += n;
+		bytesleft -= n;
+	}
+
+	*len = total;
+
+	return n==-1?-1:0; // return -1 on failure, 0 on success
+}
+
 int main(int argc, char const *argv[]) {
 	if (argc <= 1) {
 		fprintf(stderr, "Fatal: must provide rakefile\n");
@@ -228,38 +247,141 @@ int main(int argc, char const *argv[]) {
 
 	// execute_actionset();
 
-	int socket_desc[rake_file.total_hosts];
-	struct sockaddr_in server[rake_file.total_hosts];
-	for (int i = 0; i < rake_file.total_hosts; i++)
-	{
-		socket_desc[i] = socket(AF_INET, SOCK_STREAM, 0);
-		if(socket_desc[i] < 0){
+	fd_set master;
+	fd_set read_fd;
+	fd_set write_fd;
+	int fdmax = 0;
+	int newfd;	// New socket descriptor
+
+	FD_ZERO(&master);
+	FD_ZERO(&read_fd);
+	FD_ZERO(&write_fd);
+
+	struct sockaddr_in server;
+	char buf[1024];
+
+	for(int i = 0; i < rake_file.total_hosts; i++){
+		newfd = socket(AF_INET, SOCK_STREAM, 0);
+		printf("newfd = %i\n", newfd);
+		if(newfd < 0){
 			perror("Fatal: Failed to create socket\n");
 		}
-
-		server[i].sin_family = AF_INET;
-		{	
+		if(newfd > fdmax){
+			fdmax = newfd + 1;
+		}
+		server.sin_family = AF_INET;
+		{
 			char *colon = strchr(rake_file.hosts[i], ':');
 			if(colon != NULL){
 				char *host_no_port = strip_port(rake_file.hosts[i]);
-				server[i].sin_addr.s_addr = inet_addr(host_no_port);
+				server.sin_addr.s_addr = inet_addr(host_no_port);
 				free(host_no_port);
-				server[i].sin_port = htons(atoi(colon + 1));
+				server.sin_port = htons(atoi(colon + 1));
 			}
 			else{
-				server[i].sin_port = htons(rake_file.port);
-				server[i].sin_addr.s_addr = inet_addr(rake_file.hosts[i]);
+				server.sin_port = htons(rake_file.port);
+				server.sin_addr.s_addr = inet_addr(rake_file.hosts[i]);
 			}
 		}
-		int conn_stat = connect(socket_desc[i], (struct sockaddr *) &server[i], sizeof(server[i]));
+		int conn_stat = connect(newfd, (struct sockaddr *) &server, sizeof(server));
 		if(conn_stat < 0){
-			printf("Connecting to Address = %s, Port = %i\n", rake_file.hosts[i], ntohs(server[i].sin_port));
+			printf("Connecting to Address = %s, Port = %i\n", rake_file.hosts[i], ntohs(server.sin_port));
 			perror("Failed to connect to server");
 		}
 		else{
-			printf("Connected to Address = %s, Port = %i\n", rake_file.hosts[i], ntohs(server[i].sin_port));
+			FD_SET(newfd, &master);
 		}
 	}
+
+	for(int i = 0; i <= fdmax; i++){
+		if(FD_ISSET(i, &master)){
+			printf("socket desc = %i\n", i);
+		}
+	}
+
+	for(;;){
+		read_fd = master;
+		write_fd = master;
+		if(select(fdmax, &read_fd, &write_fd, NULL, NULL) < 0){
+			perror("Failed in selecting socket");
+			break;
+		}
+
+		for(int i = 0; i <= fdmax; i++){
+			// If something is ready to read
+			// if(FD_ISSET(i, &read_fd)){
+			// 	int nbytes = recv(i, buf, sizeof(buf), 0);
+			// 	if (nbytes <= 0){
+			// 		if(nbytes == 0){
+			// 			printf("Disconnected from socket %d\n", i);
+			// 		}
+			// 		else{
+			// 			perror("Error: failed to recieve");
+			// 		}
+			// 		close(i);
+			// 		FD_CLR(i, &master);
+			// 	}
+			// 	else{
+			// 		// For now, write everything you recieve back to other connected sockets
+			// 		// except for the one you recieved from
+			// 		for(int j = 0; j <= fdmax; j++){
+			// 			// if j is ready to write
+			// 			if(FD_ISSET(j, &write_fd)){
+			// 				int len = strlen(buf);
+			// 				int send_stat = sendall(j, buf, &len);
+			// 				if(send_stat < 0){
+			// 					perror("Error: Failed to send");
+			// 				}
+			// 			}
+			// 		}
+			// 	}
+			// }
+			if(FD_ISSET(i, &write_fd)){
+				printf("IN");
+				printf("%i\n", i);
+				char *str = "THIS IS A MESSAGE";
+				int len = strlen(str);
+				int send_stat = sendall(i, str, &len);
+				if(send_stat < 0){
+					perror("Error: Failed to send");
+				}
+			}
+		}
+	}
+
+	// int socket_desc[rake_file.total_hosts];
+	// struct sockaddr_in server[rake_file.total_hosts];
+	// for (int i = 0; i < rake_file.total_hosts; i++)
+	// {
+	// 	socket_desc[i] = socket(AF_INET, SOCK_STREAM, 0);
+	// 	if(socket_desc[i] < 0){
+	// 		perror("Fatal: Failed to create socket\n");
+	// 	}
+
+	// 	server[i].sin_family = AF_INET;
+	// 	{	
+	// 		char *colon = strchr(rake_file.hosts[i], ':');
+	// 		if(colon != NULL){
+	// 			char *host_no_port = strip_port(rake_file.hosts[i]);
+	// 			printf("host no port = %s\n", host_no_port);
+	// 			server[i].sin_addr.s_addr = inet_addr(host_no_port);
+	// 			free(host_no_port);
+	// 			server[i].sin_port = htons(atoi(colon + 1));
+	// 		}
+	// 		else{
+	// 			server[i].sin_port = htons(rake_file.port);
+	// 			server[i].sin_addr.s_addr = inet_addr(rake_file.hosts[i]);
+	// 		}
+	// 	}
+	// 	int conn_stat = connect(socket_desc[i], (struct sockaddr *) &server[i], sizeof(server[i]));
+	// 	if(conn_stat < 0){
+	// 		printf("Connecting to Address = %s, Port = %i\n", rake_file.hosts[i], ntohs(server[i].sin_port));
+	// 		perror("Failed to connect to server");
+	// 	}
+	// 	else{
+	// 		printf("Connected to Address = %s, Port = %i\n", rake_file.hosts[i], ntohs(server[i].sin_port));
+	// 	}
+	// }
 	
 
 	// // Debug
