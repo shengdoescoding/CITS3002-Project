@@ -1,4 +1,6 @@
+from base64 import decode
 import socket
+import subprocess
 
 HOST = "127.0.0.1"
 PORT = 4321
@@ -20,9 +22,17 @@ def main():
 				data = conn.recv(1024) # we will read at most 1024 bytes
 				if not data:
 					break
-				decoded = data.decode('utf-8')
-				print(f"{decoded}")
-				# conn.sendall(b"local host")
+				else:
+					decoded = data.decode('utf-8')
+					if "COMMAND" in decoded:
+						command = decoded.removeprefix("COMMAND")
+						command_list = command.split()
+						# print(command_list)
+						subprocess.run(command_list)
+
+				# 
+				# print(f"{decoded}")
+				# # conn.sendall(b"local host")
 
 
 if __name__ == '__main__':

@@ -208,25 +208,6 @@ char *strip_port(char *host){
 	return host_no_port;
 }
 
-int sendall(int s, char *buf, int *len){
-	int total = 0;
-	int bytesleft = *len;
-	int n;
-
-	while(total < *len){
-		n = send(s, buf+total, bytesleft, 0);
-		if(n == -1){
-			break;
-		}
-		total += n;
-		bytesleft -= n;
-	}
-
-	*len = total;
-
-	return n==-1?-1:0; // return -1 on failure, 0 on success
-}
-
 int main(int argc, char const *argv[]) {
 	if (argc <= 1) {
 		fprintf(stderr, "Fatal: must provide rakefile\n");
@@ -299,7 +280,16 @@ int main(int argc, char const *argv[]) {
 		}
 	}
 
-	for(;;){
+
+	int current_actset = 0;
+	int current_act = 0;
+
+	while(true){
+		// Ran all commands from actionset, move on to next actionset
+		if(current_act > rake_file.actsets[current_actset]->total_actions){
+			current_actset++;
+			current_act = 0;
+		}
 		read_fd = master;
 		write_fd = master;
 		if(select(fdmax, &read_fd, &write_fd, NULL, NULL) < 0){
@@ -308,81 +298,34 @@ int main(int argc, char const *argv[]) {
 		}
 
 		for(int i = 0; i <= fdmax; i++){
-			// If something is ready to read
-			// if(FD_ISSET(i, &read_fd)){
-			// 	int nbytes = recv(i, buf, sizeof(buf), 0);
-			// 	if (nbytes <= 0){
-			// 		if(nbytes == 0){
-			// 			printf("Disconnected from socket %d\n", i);
-			// 		}
-			// 		else{
-			// 			perror("Error: failed to recieve");
-			// 		}
-			// 		close(i);
-			// 		FD_CLR(i, &master);
-			// 	}
-			// 	else{
-			// 		// For now, write everything you recieve back to other connected sockets
-			// 		// except for the one you recieved from
-			// 		for(int j = 0; j <= fdmax; j++){
-			// 			// if j is ready to write
-			// 			if(FD_ISSET(j, &write_fd)){
-			// 				int len = strlen(buf);
-			// 				int send_stat = sendall(j, buf, &len);
-			// 				if(send_stat < 0){
-			// 					perror("Error: Failed to send");
-			// 				}
-			// 			}
-			// 		}
-			// 	}
-			// }
+			// All actionsets executed, close all sockets
+			if(current_actset > rake_file.total_actionsets){
+				close(i);
+				FD_CLR(i, &master);
+				continue;
+			}
 			if(FD_ISSET(i, &write_fd)){
-				printf("IN");
-				printf("%i\n", i);
-				char *str = "THIS IS A MESSAGE";
-				int len = strlen(str);
-				int send_stat = sendall(i, str, &len);
-				if(send_stat < 0){
-					perror("Error: Failed to send");
+				int send_stat;
+				int len;
+				printf("current actionset = %i\n", current_actset);
+				printf("current act = %i\n", current_act);
+				printf("current command = %s\n", rake_file.actsets[current_actset]->acts[current_act]->command);
+				if(rake_file.actsets[current_actset]->acts[current_act]->total_files != 0){
+					// Send required files
+					// Protocol - inform server of incoming file with filename and size
+				}
+				else{
+					// Send command straight away
+					// Protocol - inform server of incoming command with string "COMMAND"
+					send_command(i, current_actset, current_act);
+					current_act++;
 				}
 			}
 		}
+		if(current_actset > rake_file.total_actionsets){
+			break;
+		}
 	}
-
-	// int socket_desc[rake_file.total_hosts];
-	// struct sockaddr_in server[rake_file.total_hosts];
-	// for (int i = 0; i < rake_file.total_hosts; i++)
-	// {
-	// 	socket_desc[i] = socket(AF_INET, SOCK_STREAM, 0);
-	// 	if(socket_desc[i] < 0){
-	// 		perror("Fatal: Failed to create socket\n");
-	// 	}
-
-	// 	server[i].sin_family = AF_INET;
-	// 	{	
-	// 		char *colon = strchr(rake_file.hosts[i], ':');
-	// 		if(colon != NULL){
-	// 			char *host_no_port = strip_port(rake_file.hosts[i]);
-	// 			printf("host no port = %s\n", host_no_port);
-	// 			server[i].sin_addr.s_addr = inet_addr(host_no_port);
-	// 			free(host_no_port);
-	// 			server[i].sin_port = htons(atoi(colon + 1));
-	// 		}
-	// 		else{
-	// 			server[i].sin_port = htons(rake_file.port);
-	// 			server[i].sin_addr.s_addr = inet_addr(rake_file.hosts[i]);
-	// 		}
-	// 	}
-	// 	int conn_stat = connect(socket_desc[i], (struct sockaddr *) &server[i], sizeof(server[i]));
-	// 	if(conn_stat < 0){
-	// 		printf("Connecting to Address = %s, Port = %i\n", rake_file.hosts[i], ntohs(server[i].sin_port));
-	// 		perror("Failed to connect to server");
-	// 	}
-	// 	else{
-	// 		printf("Connected to Address = %s, Port = %i\n", rake_file.hosts[i], ntohs(server[i].sin_port));
-	// 	}
-	// }
-	
 
 	// // Debug
 	// for (int i = 0; i < rake_file.total_actionsets; i++) {

@@ -5,6 +5,8 @@ int CURR_ACTSET_INDEX;
 int CURR_ACT_INDEX;
 char **strsplit(const char *str, int *nwords);
 void free_words(char **words);
+int send_all(int s, char *buf, int *len);
+void send_command(int s, int current_actset, int current_act);
 #include<arpa/inet.h>
 #include <ctype.h>
 #include <stdbool.h>
