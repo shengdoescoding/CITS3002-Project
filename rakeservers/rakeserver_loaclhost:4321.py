@@ -1,5 +1,4 @@
-from ast import match_case
-from base64 import decode
+import ctypes
 import socket
 import subprocess
 
@@ -11,7 +10,8 @@ SIZEOF_INT = 4	# bytes
 
 ISCOMMAND = 1
 ISFILE = 2
-ISQUOTEQUERY = 3
+ISLOADQUERY = 3
+ISLOAD = 4
 
 
 def main():
@@ -29,35 +29,38 @@ def main():
 			print(f"Connected by {addr}")
 			while True:
 				data = conn.recv(SIZEOF_INT)
+				if not data:
+					break
+				conn.sendall(data)
 				data = int.from_bytes(data, 'big')	# Replace ntoh
 				print(f"Recieved data = {data}")
 				if data == ISCOMMAND:
 					print("IN COMMAND RECIEVING")
 					command_size = conn.recv(SIZEOF_INT)
 					command_size = int.from_bytes(command_size, 'big')
+
 					print(f"Recieved size of command = {command_size}")
 					command = conn.recv(command_size)
 					command = command.decode('utf-8')
+
 					print(f"{command}")
 					command_list = command.split()
-					subprocess.run(command_list)
-					# ALL_COMMANDS.append(command_list)
+					# subprocess.run(command_list)
+					ALL_COMMANDS.append(command_list)
 					# EXECUTE ALL COMMANDS in ALL_COMMANDS IN PARALLEL
-				# elif data == ISQUOTEQUERY:
+				elif data == ISLOADQUERY:
+					print("IN LOAD QUERY")
+					load_head = ctypes.c_uint32(ISLOAD)  
+					load_head = bytes(load_head)	# Big endian
+					print(f"Sending load head bytes = {load_head} , int = {int.from_bytes(load_head, 'little')}")
+					conn.sendall(load_head)
 
-
-				if not data:
-					break
-				
-				# else:
-				# 	decoded = data.decode('utf-8')
-				# 	if decoded.startswith("COMMAND"):
-				# 		command = decoded.removeprefix("COMMAND")
-				# 		command_list = command.split()
-				# 		ALL_COMMANDS.append(command_list)
-				# 		# subprocess.run(command_list)
-				# 	if decoded.startswith("COSTQUERY"):
-				# 		cost = bytes(len(ALL_COMMANDS), 'utf-8');
+					load = ctypes.c_uint32(len(ALL_COMMANDS))
+					load = bytes(load)
+					print(f"Sending load bytes = {load} , int = {int.from_bytes(load, 'little')}")
+					conn.sendall(load)
+		for command in ALL_COMMANDS:
+			print(command)
 
 
 if __name__ == '__main__':

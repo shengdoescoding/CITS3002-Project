@@ -239,7 +239,6 @@ int main(int argc, char const *argv[]) {
 	FD_ZERO(&write_fd);
 
 	struct sockaddr_in server;
-	char buf[1024];
 
 	for(int i = 0; i < rake_file.total_hosts; i++){
 		newfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -247,7 +246,7 @@ int main(int argc, char const *argv[]) {
 			perror("Fatal: Failed to create socket\n");
 		}
 		if(newfd > fdmax){
-			fdmax = newfd + 1;
+			fdmax = newfd;
 		}
 		server.sin_family = AF_INET;
 		{
@@ -275,44 +274,91 @@ int main(int argc, char const *argv[]) {
 
 	int current_actset = 0;
 	int current_act = 0;
+	uint32_t lowest_load = __INT32_MAX__;
+	int lowest_load_socket = -1;
+	char int_data_bytes[SIZEOF_INT];
+	bool actsets_finished = false;
+
+	bool load_queried[fdmax - 1];
+	for(int i = 0; i <= fdmax; i++){
+		load_queried[i] = false;
+	}
 
 	while(true){
 		// Ran all commands from actionset, move on to next actionset
-		if(current_act > rake_file.actsets[current_actset]->total_actions){
+		if(current_act == rake_file.actsets[current_actset]->total_actions){
 			current_actset++;
 			current_act = 0;
 		}
-		read_fd = master;
-		write_fd = master;
-		if(select(fdmax, &read_fd, &write_fd, NULL, NULL) < 0){
-			perror("Failed in selecting socket");
+		if(current_actset == rake_file.total_actionsets){
+			actsets_finished = true;
+		}
+		// Ran all actionsets, close all socket connections
+		if(actsets_finished){
+			// Inform server of close
+			for(int i = 0; i <= fdmax; i++){
+				shutdown(i, SHUT_RDWR);
+				close(i);
+			}
 			break;
 		}
 
+		read_fd = master;	
+		write_fd = master;	
+		if(select(fdmax + 1, &read_fd, &write_fd, NULL, NULL) < 0){
+			perror("Failed in selecting socket");
+			break;
+		}
+		
 		for(int i = 0; i <= fdmax; i++){
-			// All actionsets executed, close all sockets
-			if(current_actset > rake_file.total_actionsets){
-				close(i);
-				FD_CLR(i, &master);
+			if(FD_ISSET(i, &write_fd)){
+				// SEND LOAD QUERY
+				if(load_queried[i] == false && actsets_finished == false){
+					printf("Sending load query to %i\n", i);
+					send_loadquery(i);
+					load_queried[i] = true;
+				}
+			}
+
+			if(FD_ISSET(i, &read_fd)){
+				// Recv Load
+				int nbytes;
+				nbytes = recv(i, int_data_bytes, SIZEOF_INT, 0);
+				if(nbytes < 0){
+					perror("Error: failed to recieve");
+				}
+				uint32_t data_type_int = unpack_uint32(int_data_bytes);
+				printf("Socket %i returned data type = %i\n", i, data_type_int);
+				if(data_type_int == 4){
+					// INCOMING LOAD
+					nbytes = recv(i, int_data_bytes, SIZEOF_INT, 0);
+					if(nbytes < 0){
+						perror("Error: failed to recieve");
+					}
+					load_queried[i] = false;
+					uint32_t server_load = unpack_uint32(int_data_bytes);
+					printf("Socket %i returned server load = %i\n", i, server_load);
+					if(server_load <= lowest_load && FD_ISSET(i, &write_fd)){
+						lowest_load = server_load;
+						lowest_load_socket = i;
+					}
+					
+				}
+			}	
+		}
+		sleep(1);
+		if(rake_file.actsets[current_actset]->acts[current_act]->remote == true && rake_file.actsets[current_actset]->acts[current_act]->total_files == 0){
+			if(lowest_load_socket != -1){
+				printf("current command = %s\n", rake_file.actsets[current_actset]->acts[current_act]->command);
+				printf("Sending to socket %i\n", lowest_load_socket);
+				send_command(lowest_load_socket, current_actset, current_act);
+				current_act++;
+				lowest_load_socket = -1;
+				lowest_load = __INT32_MAX__;
+			}
+			else{
 				continue;
 			}
-			if(FD_ISSET(i, &write_fd)){
-				// printf("current actionset = %i\n", current_actset);
-				// printf("current act = %i\n", current_act);
-				// printf("current command = %s\n", rake_file.actsets[current_actset]->acts[current_act]->command);
-				if(rake_file.actsets[current_actset]->acts[current_act]->total_files != 0){
-					// Send required files
-					// Protocol - inform server of incoming file with filename and size
-				}
-				else if(rake_file.actsets[current_actset]->acts[current_act]->remote == true){
-					printf("send command\n");
-					send_command(i, current_actset, current_act);
-					current_act++;
-				}
-			}
-		}
-		if(current_actset > rake_file.total_actionsets){
-			break;
 		}
 	}
 
