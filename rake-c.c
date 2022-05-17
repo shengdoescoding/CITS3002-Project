@@ -243,7 +243,6 @@ int main(int argc, char const *argv[]) {
 
 	for(int i = 0; i < rake_file.total_hosts; i++){
 		newfd = socket(AF_INET, SOCK_STREAM, 0);
-		printf("newfd = %i\n", newfd);
 		if(newfd < 0){
 			perror("Fatal: Failed to create socket\n");
 		}
@@ -274,13 +273,6 @@ int main(int argc, char const *argv[]) {
 		}
 	}
 
-	for(int i = 0; i <= fdmax; i++){
-		if(FD_ISSET(i, &master)){
-			printf("socket desc = %i\n", i);
-		}
-	}
-
-
 	int current_actset = 0;
 	int current_act = 0;
 
@@ -305,18 +297,15 @@ int main(int argc, char const *argv[]) {
 				continue;
 			}
 			if(FD_ISSET(i, &write_fd)){
-				int send_stat;
-				int len;
-				printf("current actionset = %i\n", current_actset);
-				printf("current act = %i\n", current_act);
-				printf("current command = %s\n", rake_file.actsets[current_actset]->acts[current_act]->command);
+				// printf("current actionset = %i\n", current_actset);
+				// printf("current act = %i\n", current_act);
+				// printf("current command = %s\n", rake_file.actsets[current_actset]->acts[current_act]->command);
 				if(rake_file.actsets[current_actset]->acts[current_act]->total_files != 0){
 					// Send required files
 					// Protocol - inform server of incoming file with filename and size
 				}
-				else{
-					// Send command straight away
-					// Protocol - inform server of incoming command with string "COMMAND"
+				else if(rake_file.actsets[current_actset]->acts[current_act]->remote == true){
+					printf("send command\n");
 					send_command(i, current_actset, current_act);
 					current_act++;
 				}
