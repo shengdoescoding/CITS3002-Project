@@ -286,6 +286,9 @@ int main(int argc, char const *argv[]) {
 	// Used to terminate infinite loop
 	bool actsets_finished = false;
 
+	// Used to check if all actions from an actionset are sent to server
+	bool actions_finished = false;
+
 	// Used to count queries for load from servers
 	bool load_queried[fdmax - 1];
 	for(int i = 0; i <= fdmax; i++){
@@ -296,6 +299,8 @@ int main(int argc, char const *argv[]) {
 	while(true){
 		// Ran all commands from actionset, move on to next actionset
 		if(current_act == rake_file.actsets[current_actset]->total_actions){
+			// Inform server all commands have been sent, instruct server to start execution
+			// send_execute_request();
 			current_actset++;
 			current_act = 0;
 		}
@@ -322,20 +327,19 @@ int main(int argc, char const *argv[]) {
 		
 		// Query for all hosts once for one command
 		// total_queries must equal to total_hosts
-		// reset total_queries after getting 0
+		// reset total_queries after getting load
+		// If the load of server i has been quried once for an individual command, dont query again (load_queried[i] == false)
 		for(int i = 0; i <= fdmax; i++){
-			if(FD_ISSET(i, &write_fd)){
-				// SEND LOAD QUERY
-				if(load_queried[i] == false && actsets_finished == false){
-					printf("Sending load query to %i\n", i);
-					send_loadquery(i);
-					load_queried[i] = true;
-					total_quries++;
-				}
+			if(FD_ISSET(i, &write_fd) && load_queried[i] == false){
+				printf("Sending load query to %i\n", i);
+				send_loadquery(i);
+				load_queried[i] = true;
+				total_quries++;
 			}
 
-			if(FD_ISSET(i, &read_fd) && load_queried[i] == true && actsets_finished == false){
-				// Recv Load
+			// Recieve whatever the server is sending
+			if(FD_ISSET(i, &read_fd)){
+				// Recv Datatype (header)
 				int nbytes;
 				nbytes = recv(i, int_data_bytes, SIZEOF_INT, 0);
 				if(nbytes < 0){
@@ -343,6 +347,7 @@ int main(int argc, char const *argv[]) {
 				}
 				uint32_t data_type_int = unpack_uint32(int_data_bytes);
 				printf("Socket %i returned data type = %i\n", i, data_type_int);
+
 				if(data_type_int == 4){
 					// INCOMING LOAD
 					nbytes = recv(i, int_data_bytes, SIZEOF_INT, 0);
@@ -352,7 +357,7 @@ int main(int argc, char const *argv[]) {
 					total_quries--;
 					uint32_t server_load = unpack_uint32(int_data_bytes);
 					printf("Socket %i returned server load = %i\n", i, server_load);
-					if(server_load <= lowest_load && FD_ISSET(i, &write_fd)){
+					if(server_load <= lowest_load){
 						lowest_load = server_load;
 						lowest_load_socket = i;
 					}
@@ -360,21 +365,31 @@ int main(int argc, char const *argv[]) {
 				}
 			}	
 		}
-		sleep(1);
-		if(rake_file.actsets[current_actset]->acts[current_act]->remote == true && rake_file.actsets[current_actset]->acts[current_act]->total_files == 0 && actsets_finished == false && total_quries == 0){
-			if(lowest_load_socket != -1){
+		
+		// Only send command once all servers has sent back their load (total_quries == 0)
+		if(rake_file.actsets[current_actset]->acts[current_act]->remote == true && total_quries == 0 && FD_ISSET(lowest_load_socket, &write_fd)){
+			if(rake_file.actsets[current_actset]->acts[current_act]->total_files == 0){
 				printf("current command = %s\n", rake_file.actsets[current_actset]->acts[current_act]->command);
 				printf("Sending to socket %i\n", lowest_load_socket);
-				send_command(lowest_load_socket, current_actset, current_act);
-				current_act++;
-				lowest_load_socket = -1;
-				lowest_load = __INT32_MAX__;
+				if(send_command(lowest_load_socket, current_actset, current_act) < 0){
+					perror("Failed to send command");
+				}
 			}
-			else{
-				continue;
-			}
+			// else{
+			// 	printf("CURRENT COMMAND REQUIRES FILES\n");
+			// 	printf("current command = %s\n", rake_file.actsets[current_actset]->acts[current_act]->command);
+			// 	printf("Sending to socket %i\n", lowest_load_socket);
+			// 	for (int i = 0; i < rake_file.actsets[current_actset]->acts[current_act]->total_files; i++)
+			// 	{
+			// 		send_file(lowest_load_socket, current_actset, current_act, i);
+			// 	}
+				
+			// }
 
-			// Reset loaded_queries so the load of servers can be quried for the next command
+			// Reset checkers for next command
+			current_act++;
+			lowest_load_socket = -1;
+			lowest_load = __INT32_MAX__;
 			for (int i = 0; i <= fdmax; i++)
 			{
 				if(FD_ISSET(i, &master)){

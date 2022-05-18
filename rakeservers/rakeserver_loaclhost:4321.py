@@ -31,7 +31,6 @@ def main():
 				data = conn.recv(SIZEOF_INT)
 				if not data:
 					break
-				conn.sendall(data)
 				data = int.from_bytes(data, 'big')	# Replace ntoh
 				print(f"Recieved data = {data}")
 				if data == ISCOMMAND:

@@ -1,6 +1,7 @@
 import ctypes
 import socket
 import subprocess
+import tempfile
 
 HOST = "192.168.1.14"
 PORT = 6543
@@ -12,6 +13,7 @@ ISCOMMAND = 1
 ISFILE = 2
 ISLOADQUERY = 3
 ISLOAD = 4
+ISEXECUTEREQUEST = 5
 
 
 def main():
@@ -31,23 +33,37 @@ def main():
 				data = conn.recv(SIZEOF_INT)
 				if not data:
 					break
-				conn.sendall(data)
 				data = int.from_bytes(data, 'big')	# Replace ntoh
 				print(f"Recieved data = {data}")
 				if data == ISCOMMAND:
 					print("IN COMMAND RECIEVING")
+					# Recieve size of incoming command
 					command_size = conn.recv(SIZEOF_INT)
 					command_size = int.from_bytes(command_size, 'big')
-
+					# Recieve command
 					print(f"Recieved size of command = {command_size}")
 					command = conn.recv(command_size)
 					command = command.decode('utf-8')
-
+					
+					# Append command to ALL_COMMANDS
 					print(f"{command}")
 					command_list = command.split()
-					# subprocess.run(command_list)
 					ALL_COMMANDS.append(command_list)
-					# EXECUTE ALL COMMANDS in ALL_COMMANDS IN PARALLEL
+				elif data == ISFILE:
+					print("IN FILE RECIEVING")
+					# Recieve size of file name of incoming file
+					file_name_len = conn.recv(SIZEOF_INT)
+					file_name_len = int.from_bytes(file_name_len, 'big')
+					# Recieve name of file
+					file_name = conn.recv(file_name_len)
+					file_name = file_name.decode('utf-8')
+					# Recieve size of file
+					file_size = conn.recv(SIZEOF_INT)
+					file_size = int.from_bytes(file_size, 'big')
+
+					# Create a temp directory to store all required files
+					
+
 				elif data == ISLOADQUERY:
 					print("IN LOAD QUERY")
 					load_head = ctypes.c_uint32(ISLOAD)  
@@ -59,6 +75,12 @@ def main():
 					load = bytes(load)
 					print(f"Sending load bytes = {load} , int = {int.from_bytes(load, 'little')}")
 					conn.sendall(load)
+				elif data == ISEXECUTEREQUEST:
+					print("IN EXECUTE REQUEST")
+					# Execute all commands in all commands in parallel
+					# Empty all commands
+					# Send any generated files back to client
+
 		for command in ALL_COMMANDS:
 			print(command)
 
