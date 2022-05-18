@@ -1,13 +1,16 @@
 import ctypes
 import socket
-import subprocess
 import tempfile
+import pathlib
+import os
 
 HOST = "192.168.1.14"
 PORT = 6543
 ALL_COMMANDS = []
+ALL_REQUIRED_FILES = []
 
 SIZEOF_INT = 4	# bytes
+BUFFSIZE = 1024
 
 ISCOMMAND = 1
 ISFILE = 2
@@ -54,15 +57,27 @@ def main():
 					# Recieve size of file name of incoming file
 					file_name_len = conn.recv(SIZEOF_INT)
 					file_name_len = int.from_bytes(file_name_len, 'big')
+					print(f"File name len = {file_name_len}")
+
 					# Recieve name of file
 					file_name = conn.recv(file_name_len)
 					file_name = file_name.decode('utf-8')
+					print(f"File name = {file_name}")
+
 					# Recieve size of file
 					file_size = conn.recv(SIZEOF_INT)
 					file_size = int.from_bytes(file_size, 'big')
-
-					# Create a temp directory to store all required files
+					print(f"File size = {file_size}")
 					
+					# Create temp file in cwd
+					fd, fname = tempfile.mkstemp(suffix=pathlib.PurePath(file_name).suffix, prefix=pathlib.PurePath(file_name).stem, dir=os.getcwd())
+					# Recieve file
+					file_bytes = conn.recv(file_size)
+					os.write(fd, file_bytes)
+					os.close(fd)
+					# Store file name so it can be deleted later
+					ALL_REQUIRED_FILES.append(fname);
+					#remove temp file with os.remove(fname)
 
 				elif data == ISLOADQUERY:
 					print("IN LOAD QUERY")
@@ -70,7 +85,7 @@ def main():
 					load_head = bytes(load_head)	# Big endian
 					print(f"Sending load head bytes = {load_head} , int = {int.from_bytes(load_head, 'little')}")
 					conn.sendall(load_head)
-
+					
 					load = ctypes.c_uint32(len(ALL_COMMANDS))
 					load = bytes(load)
 					print(f"Sending load bytes = {load} , int = {int.from_bytes(load, 'little')}")

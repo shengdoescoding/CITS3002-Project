@@ -83,11 +83,22 @@ int send_file(int s, int current_actset, int current_act, int current_file){
 	if(fstat(fileno(fp), &f_stat) < 0){
 		perror("Failed: could not get file stats");
 	}
-	uint32_t size_of_file = htonl((uint32_t) f_stat.st_size);
-	if(send_all_int(s, size_of_file, SIZEOF_INT) < 0){
+	uint32_t size_of_file = f_stat.st_size;
+	uint32_t network_size_of_file = htonl((uint32_t) size_of_file);
+	if(send_all_int(s, network_size_of_file, SIZEOF_INT) < 0){
 		perror("Failed: could not send file size!");
 		return(errno);
 	}
+	// Send file
+	int sent_bytes = 0;
+	off_t offset = 0;
+	int bytes_remaining = size_of_file;
+	while(((sent_bytes = sendfile(s, fileno(fp), &offset, BUFFSIZE)) > 0) && (bytes_remaining > 0)){
+		printf("1. Server sent %d bytes from file's data, offset is now : %ld and remaining data = %d\n", sent_bytes, offset, bytes_remaining);
+		bytes_remaining -= sent_bytes;
+		printf("1. Server sent %d bytes from file's data, offset is now : %ld and remaining data = %d\n", sent_bytes, offset, bytes_remaining);
+	}
+	return(errno);
 }
 
 void send_loadquery(int s){

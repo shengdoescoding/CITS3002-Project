@@ -281,13 +281,15 @@ int main(int argc, char const *argv[]) {
 	int lowest_load_socket = -1;
 
 	// Used to store data temporarily
+	// Server will only ever send 4 bytes, no need for huge buffer
+	// Will need to increase for file transfer
 	char int_data_bytes[SIZEOF_INT];
 	
 	// Used to terminate infinite loop
 	bool actsets_finished = false;
 
-	// Used to check if all actions from an actionset are sent to server
-	bool actions_finished = false;
+	// // Used to check if all actions from an actionset are sent to server
+	// bool actions_finished = false;
 
 	// Used to count queries for load from servers
 	bool load_queried[fdmax - 1];
@@ -375,16 +377,18 @@ int main(int argc, char const *argv[]) {
 					perror("Failed to send command");
 				}
 			}
-			// else{
-			// 	printf("CURRENT COMMAND REQUIRES FILES\n");
-			// 	printf("current command = %s\n", rake_file.actsets[current_actset]->acts[current_act]->command);
-			// 	printf("Sending to socket %i\n", lowest_load_socket);
-			// 	for (int i = 0; i < rake_file.actsets[current_actset]->acts[current_act]->total_files; i++)
-			// 	{
-			// 		send_file(lowest_load_socket, current_actset, current_act, i);
-			// 	}
-				
-			// }
+			else{
+				printf("CURRENT COMMAND REQUIRES FILES\n");
+				printf("current command = %s\n", rake_file.actsets[current_actset]->acts[current_act]->command);
+				printf("Sending to socket %i\n", lowest_load_socket);
+				for (int i = 0; i < rake_file.actsets[current_actset]->acts[current_act]->total_files; i++)
+				{
+					send_file(lowest_load_socket, current_actset, current_act, i);
+				}
+				if(send_command(lowest_load_socket, current_actset, current_act) < 0){
+					perror("Failed to send command");
+				}
+			}
 
 			// Reset checkers for next command
 			current_act++;
