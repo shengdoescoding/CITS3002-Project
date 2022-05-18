@@ -1,3 +1,4 @@
+import subprocess
 import ctypes
 import socket
 import tempfile
@@ -14,12 +15,23 @@ BUFFSIZE = 1024
 
 ISCOMMAND = 1
 ISFILE = 2
-ISLOADQUERY = 3
-ISLOAD = 4
-ALLCOMMANDSSENT = 5
+FILERECIEVED = 3
+ISLOADQUERY = 4
+ISLOAD = 5
+ALLCOMMANDSSENT = 6
+ALLCOMMANDEXECUTED = 7
 
-# def execute_all_commands():
-	
+def execute_all_commands():
+	all_chilps = []
+	for command in ALL_COMMANDS:
+		childp = subprocess.Popen(command, shell=True)
+		all_chilps.append(childp)
+	exit_status = [childp.wait() for childp in all_chilps]
+	print(f"exit status = {exit_status}")
+	ALL_COMMANDS.clear()
+	for fd in ALL_REQUIRED_FILES:
+		os.remove(fd.name)
+	ALL_REQUIRED_FILES.clear()
 
 def main():
 	# AF_INET = IPv4, SOCK_STREM = TCP
@@ -78,6 +90,11 @@ def main():
 						fd.write(file_bytes)
 					# Store file desc so it can be deleted later
 					ALL_REQUIRED_FILES.append(fd);
+
+					# Inform client file has been recieved
+					file_recieved = bytes(ctypes.c_uint32(FILERECIEVED));
+					print(f"Sending file recieved = {file_recieved} , int = {int.from_bytes(file_recieved, 'little')}")
+					conn.sendall(file_recieved)
 				elif data == ISLOADQUERY:
 					print("IN LOAD QUERY")
 					load_head = ctypes.c_uint32(ISLOAD)  
@@ -91,10 +108,10 @@ def main():
 					conn.sendall(load)
 				elif data == ALLCOMMANDSSENT:
 					print("IN ALL COMMANDS SENT")
-					# Execute all commands in all commands in parallel
-					# Empty all commands
-					# Send any generated files back to client
-					# Remove required files with os.remove(fd.name) for all fds in ALL_REQUIRED_FILES
+					execute_all_commands()
+					# Inform client all commands have been executed.
+					conn.sendall(bytes(ctypes.c_uint32(ALLCOMMANDEXECUTED)))
+					
 
 		for command in ALL_COMMANDS:
 			print(command)

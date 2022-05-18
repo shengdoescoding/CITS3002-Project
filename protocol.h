@@ -2,13 +2,14 @@
 #define protocol_h
 
 #define SIZEOF_INT 4
-#define BUFFSIZE 1024
 
 #define ISCOMMAND 1
 #define ISFILE 2
-#define ISLOADQUERY 3
-#define ISLOAD 4
-#define ALLCOMMANDSSENT 5
+#define FILERECIEVED 3
+#define ISLOADQUERY 4
+#define ISLOAD 5
+#define ALLCOMMANDSSENT 6
+#define ALLCOMMANDEXECUTED 7
 
 #include <sys/sendfile.h>
 

@@ -93,7 +93,7 @@ int send_file(int s, int current_actset, int current_act, int current_file){
 	int sent_bytes = 0;
 	off_t offset = 0;
 	int bytes_remaining = size_of_file;
-	while(((sent_bytes = sendfile(s, fileno(fp), &offset, BUFFSIZE)) > 0) && (bytes_remaining > 0)){
+	while(((sent_bytes = sendfile(s, fileno(fp), &offset, size_of_file)) > 0) && (bytes_remaining > 0)){
 		printf("1. Server sent %d bytes from file's data, offset is now : %ld and remaining data = %d\n", sent_bytes, offset, bytes_remaining);
 		bytes_remaining -= sent_bytes;
 		printf("1. Server sent %d bytes from file's data, offset is now : %ld and remaining data = %d\n", sent_bytes, offset, bytes_remaining);
@@ -114,7 +114,3 @@ uint32_t unpack_uint32(const char *bytes){
 	uint32_t unpacked = bytes[0] + (bytes[1] << 8) + (bytes[2] << 16) + (bytes[3] << 24);
 	return unpacked;
 }
-
-// void get_load(){
-
-// }

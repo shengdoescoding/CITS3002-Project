@@ -269,6 +269,7 @@ int main(int argc, char const *argv[]) {
 		}
 		else{
 			FD_SET(newfd, &master);
+			printf("newfd = %i\n", newfd);
 		}
 	}
 
@@ -290,6 +291,12 @@ int main(int argc, char const *argv[]) {
 
 	// // Used to check if all actions from an actionset are sent to server
 	// bool actions_finished = false;
+
+	// Used to track which sockets recieved commads
+	bool command_sent[fdmax - 1];
+	for(int i = 0; i < fdmax; i++){
+		command_sent[i] = false;
+	}
 
 	// Used to count queries for load from servers
 	bool load_queried[fdmax - 1];
@@ -353,11 +360,11 @@ int main(int argc, char const *argv[]) {
 				printf("Socket %i returned data type = %i\n", i, data_type_int);
 				
 				if (data_type_int == 0){
-					printf("Socket %i closed unexpectedly by server");
+					printf("Socket %i closed unexpectedly by server", i);
 					close(i);
 					FD_CLR(i, &master);
 				}
-				else if(data_type_int == 4){
+				else if(data_type_int == ISLOAD){
 					// INCOMING LOAD
 					nbytes = recv(i, int_data_bytes, SIZEOF_INT, 0);
 					if(nbytes < 0){
@@ -371,7 +378,7 @@ int main(int argc, char const *argv[]) {
 						lowest_load_socket = i;
 					}
 					
-				}	
+				}
 			}
 		}
 		
@@ -383,18 +390,42 @@ int main(int argc, char const *argv[]) {
 				if(send_command(lowest_load_socket, current_actset, current_act) < 0){
 					perror("Failed to send command");
 				}
+				command_sent[lowest_load_socket] = true;
 			}
 			else{
 				printf("CURRENT COMMAND REQUIRES FILES\n");
 				printf("current command = %s\n", rake_file.actsets[current_actset]->acts[current_act]->command);
 				printf("Sending to socket %i\n", lowest_load_socket);
-				for (int i = 0; i < rake_file.actsets[current_actset]->acts[current_act]->total_files; i++)
-				{
+				for (int i = 0; i < rake_file.actsets[current_actset]->acts[current_act]->total_files; i++){
 					send_file(lowest_load_socket, current_actset, current_act, i);
+					// Wait for server to respond with file recieved
+					while(true){
+						fd_set temp_read_fd;
+						FD_ZERO(&temp_read_fd);
+						temp_read_fd = master;
+						if(select(fdmax + 1, &temp_read_fd, NULL, NULL, NULL) < 0){
+							perror("Failed in selecting socket");
+							break;
+						}
+						printf("lowest_load_socket = %i\n", lowest_load_socket);
+						if(FD_ISSET(lowest_load_socket, &temp_read_fd)){
+							int nbytes;
+							nbytes = recv(lowest_load_socket, int_data_bytes, SIZEOF_INT, 0);
+							if(nbytes < 0){
+								perror("Error: failed to recieve");
+							}
+							uint32_t data_type_int = unpack_uint32(int_data_bytes);
+							printf("Socket %i returned data type = %i\n", i, data_type_int);
+							if(data_type_int == FILERECIEVED){
+								break;
+							}
+						}
+					}
 				}
 				if(send_command(lowest_load_socket, current_actset, current_act) < 0){
 					perror("Failed to send command");
 				}
+				command_sent[lowest_load_socket] = true;
 			}
 
 			// Reset checkers for next command
