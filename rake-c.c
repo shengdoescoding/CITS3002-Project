@@ -334,7 +334,9 @@ int main(int argc, char const *argv[]) {
 		for(int i = 0; i <= fdmax; i++){
 			if(FD_ISSET(i, &write_fd) && load_queried[i] == false){
 				printf("Sending load query to %i\n", i);
-				send_loadquery(i);
+				if(send_loadquery(i) < 0){
+					perror("Error: could not send load query");
+				}
 				load_queried[i] = true;
 				total_quries++;
 			}
@@ -349,8 +351,13 @@ int main(int argc, char const *argv[]) {
 				}
 				uint32_t data_type_int = unpack_uint32(int_data_bytes);
 				printf("Socket %i returned data type = %i\n", i, data_type_int);
-
-				if(data_type_int == 4){
+				
+				if (data_type_int == 0){
+					printf("Socket %i closed unexpectedly by server");
+					close(i);
+					FD_CLR(i, &master);
+				}
+				else if(data_type_int == 4){
 					// INCOMING LOAD
 					nbytes = recv(i, int_data_bytes, SIZEOF_INT, 0);
 					if(nbytes < 0){
@@ -364,8 +371,8 @@ int main(int argc, char const *argv[]) {
 						lowest_load_socket = i;
 					}
 					
-				}
-			}	
+				}	
+			}
 		}
 		
 		// Only send command once all servers has sent back their load (total_quries == 0)

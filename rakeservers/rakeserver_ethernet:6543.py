@@ -16,8 +16,10 @@ ISCOMMAND = 1
 ISFILE = 2
 ISLOADQUERY = 3
 ISLOAD = 4
-ISEXECUTEREQUEST = 5
+ALLCOMMANDSSENT = 5
 
+# def execute_all_commands():
+	
 
 def main():
 	# AF_INET = IPv4, SOCK_STREM = TCP
@@ -68,17 +70,14 @@ def main():
 					file_size = conn.recv(SIZEOF_INT)
 					file_size = int.from_bytes(file_size, 'big')
 					print(f"File size = {file_size}")
-					
-					# Create temp file in cwd
-					fd, fname = tempfile.mkstemp(suffix=pathlib.PurePath(file_name).suffix, prefix=pathlib.PurePath(file_name).stem, dir=os.getcwd())
-					# Recieve file
-					file_bytes = conn.recv(file_size)
-					os.write(fd, file_bytes)
-					os.close(fd)
-					# Store file name so it can be deleted later
-					ALL_REQUIRED_FILES.append(fname);
-					#remove temp file with os.remove(fname)
 
+					# Create temp file in cwd
+					with open(file_name, 'wb') as fd:
+						# Recieve file
+						file_bytes = conn.recv(file_size)
+						fd.write(file_bytes)
+					# Store file desc so it can be deleted later
+					ALL_REQUIRED_FILES.append(fd);
 				elif data == ISLOADQUERY:
 					print("IN LOAD QUERY")
 					load_head = ctypes.c_uint32(ISLOAD)  
@@ -90,11 +89,12 @@ def main():
 					load = bytes(load)
 					print(f"Sending load bytes = {load} , int = {int.from_bytes(load, 'little')}")
 					conn.sendall(load)
-				elif data == ISEXECUTEREQUEST:
-					print("IN EXECUTE REQUEST")
+				elif data == ALLCOMMANDSSENT:
+					print("IN ALL COMMANDS SENT")
 					# Execute all commands in all commands in parallel
 					# Empty all commands
 					# Send any generated files back to client
+					# Remove required files with os.remove(fd.name) for all fds in ALL_REQUIRED_FILES
 
 		for command in ALL_COMMANDS:
 			print(command)

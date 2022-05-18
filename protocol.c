@@ -101,11 +101,13 @@ int send_file(int s, int current_actset, int current_act, int current_file){
 	return(errno);
 }
 
-void send_loadquery(int s){
+int send_loadquery(int s){
 	uint32_t data_type = htonl((uint32_t) ISLOADQUERY);
 	if(send_all_int(s, data_type, SIZEOF_INT) < 0){
 		perror("Failed: could not send data type!");
+		return errno;
 	}
+	return errno;
 }
 
 uint32_t unpack_uint32(const char *bytes){
