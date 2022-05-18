@@ -288,15 +288,18 @@ int main(int argc, char const *argv[]) {
 	
 	// Used to terminate infinite loop
 	bool actsets_finished = false;
-
-	// // Used to check if all actions from an actionset are sent to server
-	// bool actions_finished = false;
+	
+	// Used to track if all commands have been sent to server
+	bool all_act_sent = false;
 
 	// Used to track which sockets recieved commads
 	bool command_sent[fdmax - 1];
 	for(int i = 0; i < fdmax; i++){
 		command_sent[i] = false;
 	}
+	int total_sock_recv_command = 0;
+	
+	// Used to track how many sockets have been instructed to 
 
 	// Used to count queries for load from servers
 	bool load_queried[fdmax - 1];
@@ -306,14 +309,11 @@ int main(int argc, char const *argv[]) {
 	int total_quries = 0;
 
 	while(true){
-		// Ran all commands from actionset, move on to next actionset
+		// If this is the last command, set all_act_sent = true
 		if(current_act == rake_file.actsets[current_actset]->total_actions){
-			// Inform server all commands have been sent, instruct server to start execution
-			// send_execute_request();
-			current_actset++;
-			current_act = 0;
+			all_act_sent = true;
 		}
-		
+
 		if(current_actset == rake_file.total_actionsets){
 			actsets_finished = true;
 		}
@@ -334,21 +334,25 @@ int main(int argc, char const *argv[]) {
 			break;
 		}
 		
-		// Query for all hosts once for one command
-		// total_queries must equal to total_hosts
-		// reset total_queries after getting load
-		// If the load of server i has been quried once for an individual command, dont query again (load_queried[i] == false)
+		// Main read loop
 		for(int i = 0; i <= fdmax; i++){
-			if(FD_ISSET(i, &write_fd) && load_queried[i] == false){
+			if(FD_ISSET(i, &write_fd) && load_queried[i] == false && all_act_sent == false){
 				printf("Sending load query to %i\n", i);
-				if(send_loadquery(i) < 0){
+				if(send_instruction(i, ISLOADQUERY) < 0){
 					perror("Error: could not send load query");
 				}
 				load_queried[i] = true;
 				total_quries++;
 			}
 
-			// Recieve whatever the server is sending
+			if(all_act_sent == true && command_sent[i] == true){
+				printf("Sending execute all command request to %i\n", i);
+				if(send_instruction(i, ALLCOMMANDSSENT) < 0){
+					perror("Error: could not send load query");
+				}
+				command_sent[i] = false;
+			}
+
 			if(FD_ISSET(i, &read_fd)){
 				// Recv Datatype (header)
 				int nbytes;
@@ -379,18 +383,26 @@ int main(int argc, char const *argv[]) {
 					}
 					
 				}
+				else if(data_type_int == ALLCOMMANDEXECUTED){
+					total_sock_recv_command--;
+
+					if(total_sock_recv_command == 0){
+						current_actset++;
+						current_act = 0;
+						all_act_sent = false;
+					}
+				}
 			}
 		}
 		
 		// Only send command once all servers has sent back their load (total_quries == 0)
-		if(rake_file.actsets[current_actset]->acts[current_act]->remote == true && total_quries == 0 && FD_ISSET(lowest_load_socket, &write_fd)){
+		if(rake_file.actsets[current_actset]->acts[current_act]->remote == true && total_quries == 0 && FD_ISSET(lowest_load_socket, &write_fd) && all_act_sent == false){
 			if(rake_file.actsets[current_actset]->acts[current_act]->total_files == 0){
 				printf("current command = %s\n", rake_file.actsets[current_actset]->acts[current_act]->command);
 				printf("Sending to socket %i\n", lowest_load_socket);
 				if(send_command(lowest_load_socket, current_actset, current_act) < 0){
 					perror("Failed to send command");
 				}
-				command_sent[lowest_load_socket] = true;
 			}
 			else{
 				printf("CURRENT COMMAND REQUIRES FILES\n");
@@ -407,7 +419,6 @@ int main(int argc, char const *argv[]) {
 							perror("Failed in selecting socket");
 							break;
 						}
-						printf("lowest_load_socket = %i\n", lowest_load_socket);
 						if(FD_ISSET(lowest_load_socket, &temp_read_fd)){
 							int nbytes;
 							nbytes = recv(lowest_load_socket, int_data_bytes, SIZEOF_INT, 0);
@@ -415,7 +426,7 @@ int main(int argc, char const *argv[]) {
 								perror("Error: failed to recieve");
 							}
 							uint32_t data_type_int = unpack_uint32(int_data_bytes);
-							printf("Socket %i returned data type = %i\n", i, data_type_int);
+							printf("Socket %i returned data type = %i\n", lowest_load_socket, data_type_int);
 							if(data_type_int == FILERECIEVED){
 								break;
 							}
@@ -425,9 +436,12 @@ int main(int argc, char const *argv[]) {
 				if(send_command(lowest_load_socket, current_actset, current_act) < 0){
 					perror("Failed to send command");
 				}
+			}
+			// Keep track of which socket, and how many unique sockets recieved commands
+			if(command_sent[lowest_load_socket] == false){
+				total_sock_recv_command++;
 				command_sent[lowest_load_socket] = true;
 			}
-
 			// Reset checkers for next command
 			current_act++;
 			lowest_load_socket = -1;

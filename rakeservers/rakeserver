@@ -92,6 +92,7 @@ def main():
 					ALL_REQUIRED_FILES.append(fd);
 
 					# Inform client file has been recieved
+					print(f"Sending FILERECIEVED")
 					conn.sendall(bytes(ctypes.c_uint32(FILERECIEVED)))
 				elif data == ISLOADQUERY:
 					print("IN LOAD QUERY")
