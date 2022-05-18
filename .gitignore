@@ -5,3 +5,4 @@ rakefiles/
 test_files/
 testfile*
 testfile*
+rakeserver_*
