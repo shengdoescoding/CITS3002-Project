@@ -1,9 +1,9 @@
+from operator import truediv
 import subprocess
 import ctypes
 import socket
-import tempfile
-import pathlib
 import os
+import pathlib
 
 HOST = ""
 PORT = 0
@@ -20,6 +20,17 @@ ISLOADQUERY = 4
 ISLOAD = 5
 ALLCOMMANDSSENT = 6
 ALLCOMMANDEXECUTED = 7
+FAILEDCOMMANDEXECUTION = 8
+
+def diff(list1, list2):
+	return list(set(list1) - set(list2)) + list(set(list2) - set(list1))
+
+def get_file_paths_in_cwd():
+	files = []
+	for path in os.listdir(os.getcwd()):
+		if os.path.isfile(os.path.join(os.getcwd(), path)):
+			files.append(os.path.join(os.getcwd(), path))
+	return files
 
 def execute_all_commands():
 	all_chilps = []
@@ -28,10 +39,9 @@ def execute_all_commands():
 		all_chilps.append(childp)
 	exit_status = [childp.wait() for childp in all_chilps]
 	print(f"exit status = {exit_status}")
-	ALL_COMMANDS.clear()
-	for fd in ALL_REQUIRED_FILES:
-		os.remove(fd.name)
-	ALL_REQUIRED_FILES.clear()
+	if 1 in exit_status:
+		return False
+	return True
 
 def main():
 	# AF_INET = IPv4, SOCK_STREM = TCP
@@ -107,9 +117,54 @@ def main():
 					conn.sendall(load)
 				elif data == ALLCOMMANDSSENT:
 					print("IN ALL COMMANDS SENT")
-					execute_all_commands()
-					# Inform client all commands have been executed.
-					conn.sendall(bytes(ctypes.c_uint32(ALLCOMMANDEXECUTED)))
+
+					files_pre_exec = get_file_paths_in_cwd()
+					no_error = execute_all_commands()
+					files_post_exec = get_file_paths_in_cwd()
+
+					if no_error == True:
+						if len(files_post_exec) - len(files_pre_exec) != 0:
+							new_files = diff(files_pre_exec, files_post_exec)
+							print(f"New files = {new_files}")
+							for path in new_files:
+								print(f"Sending created file {path} to client")
+								# First send ISFILE to inform client a file is coming
+								print(f"Sending ISFILE")
+								conn.sendall(bytes(ctypes.c_uint32(ISFILE)))
+								# Second send size of file name (+1 for null terminator)
+								file_name = pathlib.PurePath(path).name
+								print(f"Sending file name = {file_name}")
+								conn.sendall(bytes(ctypes.c_uint32(len(file_name) + 1)))
+								# Third send name of file
+								conn.sendall(file_name.encode('ascii'))	# Hopefully c will convert from ascii to char auto
+								# Fourth send size of file
+								file_size = pathlib.Path(file_name).stat().st_size
+								print(f"Sending file size = {file_size}")
+								conn.sendall(bytes(ctypes.c_uint32(file_size)))
+								# Send file
+								with open(file_name, "rb") as fd:
+									while True:
+										bytes_read = fd.read(file_size)
+										if not bytes_read:
+											print("File transfer complete")
+											break
+										conn.sendall(bytes_read)
+
+
+						# Inform client all commands have been executed.
+						print("SENDING NO ERROR")
+						conn.sendall(bytes(ctypes.c_uint32(ALLCOMMANDEXECUTED)))
+					else:
+						# Inform client an error occured
+						print("SENDING ERROR")
+						conn.sendall(bytes(ctypes.c_uint32(FAILEDCOMMANDEXECUTION)))
+
+					# Clean Up
+					ALL_COMMANDS.clear()
+					for fd in ALL_REQUIRED_FILES:
+						os.remove(fd.name)
+					ALL_REQUIRED_FILES.clear()
+						
 					
 
 		for command in ALL_COMMANDS:

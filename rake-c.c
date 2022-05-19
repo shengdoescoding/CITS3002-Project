@@ -306,10 +306,19 @@ int main(int argc, char const *argv[]) {
 	}
 	int total_quries = 0;
 
+	// Used to track if errors occured during remote execution
+	bool command_exec_error = false;
+
 	while(true){
 		// Ran all actionsets, close all socket connections
-		if(actsets_finished){
-			// Inform server of close
+		if(actsets_finished || command_exec_error){
+			if(actsets_finished){
+				printf("All actionset succesfully executed, shutting down all sockets\n");
+			}
+			else if(command_exec_error){
+				printf("An error occured when executing remote commands, shutting down all sockets\n");
+			}
+
 			for(int i = 0; i <= fdmax; i++){
 				close(i);
 			}
@@ -325,7 +334,6 @@ int main(int argc, char const *argv[]) {
 		
 		// Main read loop
 			for(int i = 0; i <= fdmax; i++){
-				
 				if(actsets_finished == false){
 					if(FD_ISSET(i, &write_fd) && load_queried[i] == false && all_act_sent == false){
 						printf("Sending load query to %i\n", i);
@@ -388,6 +396,9 @@ int main(int argc, char const *argv[]) {
 							}
 						}
 					}
+					else if(data_type_int == FAILEDCOMMANDEXECUTION){
+						command_exec_error = true;
+					}
 				}
 			}
 		
@@ -405,6 +416,7 @@ int main(int argc, char const *argv[]) {
 					printf("current command = %s\n", rake_file.actsets[current_actset]->acts[current_act]->command);
 					printf("Sending to socket %i\n", lowest_load_socket);
 					for (int i = 0; i < rake_file.actsets[current_actset]->acts[current_act]->total_files; i++){
+						printf("Sending file %s\n", rake_file.actsets[current_actset]->acts[current_act]->required_files[i]);
 						send_file(lowest_load_socket, current_actset, current_act, i);
 						// Wait for server to respond with file recieved
 						while(true){
@@ -429,6 +441,7 @@ int main(int argc, char const *argv[]) {
 							}
 						}
 					}
+					printf("File sent, sending command now!\n");
 					if(send_command(lowest_load_socket, current_actset, current_act) < 0){
 						perror("Failed to send command");
 					}

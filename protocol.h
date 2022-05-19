@@ -10,6 +10,7 @@
 #define ISLOAD 5
 #define ALLCOMMANDSSENT 6
 #define ALLCOMMANDEXECUTED 7
+#define FAILEDCOMMANDEXECUTION 8
 
 #include <sys/sendfile.h>
 
