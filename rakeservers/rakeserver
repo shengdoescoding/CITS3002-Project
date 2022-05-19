@@ -24,7 +24,7 @@ ALLCOMMANDEXECUTED = 7
 def execute_all_commands():
 	all_chilps = []
 	for command in ALL_COMMANDS:
-		childp = subprocess.Popen(command, shell=True)
+		childp = subprocess.Popen(command)
 		all_chilps.append(childp)
 	exit_status = [childp.wait() for childp in all_chilps]
 	print(f"exit status = {exit_status}")
