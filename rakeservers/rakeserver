@@ -134,16 +134,22 @@ def main():
 
 								# Second send size of file name
 								file_name = pathlib.PurePath(path).name
-								print(f"Sending file name = {file_name}")
+								print(f"Sending size of file name = {len(file_name)}")
 								conn.sendall(bytes(ctypes.c_uint32(len(file_name))))
 
 								# Third send name of file
+								print(f"Sending file name = {file_name}")
 								conn.sendall(file_name.encode('ascii'))	# Hopefully c will convert from ascii to char auto
 				
 								# Fourth send size of file
 								file_size = pathlib.Path(file_name).stat().st_size
-								print(f"Sending file size = {file_size}")
-								conn.sendall(bytes(ctypes.c_uint32(file_size)))
+								# print(f"Sending file size = {file_size}, byte form:")
+								# print(bytes(ctypes.c_uint32(file_size)))
+								# conn.sendall(bytes(ctypes.c_uint32(file_size)))
+								print("Testing python primative int with to_bytes()")
+								file_size_bytes = file_size.to_bytes(4, byteorder='little')
+								print(f"Sending file size = {file_size}, byte form with to_bytes(4, byteorder='little'): {file_size_bytes}")
+								conn.sendall(file_size_bytes)
 
 								# Send file
 								with open(file_name, "rb") as fd:
@@ -157,6 +163,7 @@ def main():
 								# Wait for FILERECIEVED
 								while(True):
 									data = conn.recv(SIZEOF_INT)
+									print(f"Recieved data = {data} while waiting for FILE RECIEVED")
 									if not data:
 										break
 									data = int.from_bytes(data, 'big')	# Replace ntoh

@@ -78,6 +78,7 @@ int send_file(int s, int current_actset, int current_act, int current_file){
 	FILE *fp = fopen(rake_file.actsets[current_actset]->acts[current_act]->required_files[current_file], "r");
 	if (fp == NULL) {
 		perror("Unable to open file");
+		exit(EXIT_FAILURE);
 	}
 	struct stat f_stat;
 	if(fstat(fileno(fp), &f_stat) < 0){
@@ -110,7 +111,7 @@ int send_instruction(int s, int instruction){
 	return errno;
 }
 
-uint32_t unpack_uint32(const char *bytes){
+uint32_t unpack_uint32(const unsigned char *bytes){
 	uint32_t unpacked = bytes[0] + (bytes[1] << 8) + (bytes[2] << 16) + (bytes[3] << 24);
 	return unpacked;
 }

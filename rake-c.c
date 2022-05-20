@@ -284,7 +284,8 @@ int main(int argc, char const *argv[]) {
 	// Used to store data temporarily
 	// Server will only ever send 4 bytes, no need for huge buffer
 	// Will need to increase for file transfer
-	char int_data_bytes[SIZEOF_INT];
+	// MAJOR LEARNING POINT, SPECIFY UNSIGNED, BECAUSE SOMETIMES A BYTE CAN BE LARGER THAN 4 BITS IN UNSIGNED CHAR
+	unsigned char int_data_bytes[SIZEOF_INT];
 	
 	// Used to terminate infinite loop
 	bool actsets_finished = false;
@@ -413,7 +414,7 @@ int main(int argc, char const *argv[]) {
 						if(nbytes < 0){
 							perror("Error: failed to recieve");
 						}
-						file_name[file_name_len + 1] = '\0';
+						file_name[file_name_len] = '\0';
 						printf("File name = %s\n", file_name);
 
 						nbytes = recv(i, int_data_bytes, SIZEOF_INT, 0);

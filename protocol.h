@@ -18,6 +18,6 @@ int send_all(int s, char *buf, int len);
 int send_command(int s, int current_actset, int current_act);
 int send_file(int s, int current_actset, int current_act, int current_file);
 int send_instruction(int s, int instruction);
-uint32_t unpack_uint32(const char *bytes);
+uint32_t unpack_uint32(const unsigned char *bytes);
 
 #endif
