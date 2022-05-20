@@ -399,6 +399,48 @@ int main(int argc, char const *argv[]) {
 					else if(data_type_int == FAILEDCOMMANDEXECUTION){
 						command_exec_error = true;
 					}
+					else if(data_type_int == ISFILE){
+						printf("Recieving file from server\n");
+						nbytes = recv(i, int_data_bytes, SIZEOF_INT, 0);
+						if(nbytes < 0){
+							perror("Error: failed to recieve");
+						}
+						uint32_t file_name_len = unpack_uint32(int_data_bytes);
+						printf("file name len = %i\n", file_name_len);
+
+						char file_name[file_name_len + 1];	// +1 for null-terminator byte
+						nbytes = recv(i, file_name, file_name_len, 0);
+						if(nbytes < 0){
+							perror("Error: failed to recieve");
+						}
+						file_name[file_name_len + 1] = '\0';
+						printf("File name = %s\n", file_name);
+
+						nbytes = recv(i, int_data_bytes, SIZEOF_INT, 0);
+						if(nbytes < 0){
+							perror("Error: failed to recieve");
+						}
+						uint32_t file_size = unpack_uint32(int_data_bytes);
+						printf("file size = %i\n", file_size);
+
+						FILE *fp = fopen(file_name, "wb");
+						if (fp == NULL) {
+							perror("Unable to open file");
+						}
+						uint32_t remaining_data = file_size;
+						char *buff = malloc(file_size);
+						while((remaining_data > 0) && ((nbytes = recv(i, buff, file_size, 0)) > 0)){
+							fwrite(buff, sizeof(char), nbytes, fp);
+							remaining_data -= nbytes;
+							printf("Receive %d bytes and we hope :- %d bytes\n", nbytes, remaining_data);
+						}
+						fclose(fp);
+						free(buff);
+						printf("Sending FILE RECIEVED to %i\n", i);
+						if(send_instruction(i, FILERECIEVED) < 0){
+							perror("Error: could not send load query");
+						}
+					}
 				}
 			}
 		

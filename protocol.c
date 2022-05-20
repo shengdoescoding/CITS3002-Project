@@ -101,10 +101,6 @@ int send_file(int s, int current_actset, int current_act, int current_file){
 	return(errno);
 }
 
-int recv_file(int s){
-	
-}
-
 int send_instruction(int s, int instruction){
 	uint32_t data_type = htonl((uint32_t) instruction);
 	if(send_all_int(s, data_type, SIZEOF_INT) < 0){

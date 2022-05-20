@@ -125,22 +125,26 @@ def main():
 					if no_error == True:
 						if len(files_post_exec) - len(files_pre_exec) != 0:
 							new_files = diff(files_pre_exec, files_post_exec)
-							print(f"New files = {new_files}")
+							print("Some file created, sending back to client, number of new files = {newfiles}")
 							for path in new_files:
 								print(f"Sending created file {path} to client")
 								# First send ISFILE to inform client a file is coming
 								print(f"Sending ISFILE")
 								conn.sendall(bytes(ctypes.c_uint32(ISFILE)))
-								# Second send size of file name (+1 for null terminator)
+
+								# Second send size of file name
 								file_name = pathlib.PurePath(path).name
 								print(f"Sending file name = {file_name}")
-								conn.sendall(bytes(ctypes.c_uint32(len(file_name) + 1)))
+								conn.sendall(bytes(ctypes.c_uint32(len(file_name))))
+
 								# Third send name of file
 								conn.sendall(file_name.encode('ascii'))	# Hopefully c will convert from ascii to char auto
+				
 								# Fourth send size of file
 								file_size = pathlib.Path(file_name).stat().st_size
 								print(f"Sending file size = {file_size}")
 								conn.sendall(bytes(ctypes.c_uint32(file_size)))
+
 								# Send file
 								with open(file_name, "rb") as fd:
 									while True:
@@ -150,6 +154,14 @@ def main():
 											break
 										conn.sendall(bytes_read)
 
+								# Wait for FILERECIEVED
+								while(True):
+									data = conn.recv(SIZEOF_INT)
+									if not data:
+										break
+									data = int.from_bytes(data, 'big')	# Replace ntoh
+									if(data == FILERECIEVED):
+										break
 
 						# Inform client all commands have been executed.
 						print("SENDING NO ERROR")
