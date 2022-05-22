@@ -94,7 +94,7 @@ int send_file(int s, int current_actset, int current_act, int current_file){
 	int sent_bytes = 0;
 	off_t offset = 0;
 	int bytes_remaining = size_of_file;
-	while(((sent_bytes = sendfile(s, fileno(fp), &offset, size_of_file)) > 0) && (bytes_remaining > 0)){
+	while(((sent_bytes = sendfile(s, fileno(fp), &offset, BUFFSIZE)) > 0) && (bytes_remaining > 0)){
 		printf("1. Server sent %d bytes from file's data, offset is now : %ld and remaining data = %d\n", sent_bytes, offset, bytes_remaining);
 		bytes_remaining -= sent_bytes;
 		printf("1. Server sent %d bytes from file's data, offset is now : %ld and remaining data = %d\n", sent_bytes, offset, bytes_remaining);

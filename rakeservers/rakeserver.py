@@ -3,8 +3,6 @@ import ctypes
 import socket
 import os
 import pathlib
-from typing import final
-from xxlimited import new
 
 HOST = ""
 PORT = 0
@@ -96,11 +94,13 @@ def main():
 					print(f"File size = {file_size}")
 
 					# Create temp file in cwd
+					bytes_remaining = file_size
 					with open(file_name, 'wb') as fd:
-						# Recieve file
-						file_bytes = conn.recv(file_size)
-						fd.write(file_bytes)
-					# Store file desc so it can be deleted later
+						while bytes_remaining > 0:
+							data_chunk = min(bytes_remaining, BUFFSIZE)
+							file_bytes = conn.recv(data_chunk)
+							fd.write(file_bytes)
+							bytes_remaining -= len(file_bytes)
 					ALL_REQUIRED_FILES.append(fd);
 
 					# Inform client file has been recieved

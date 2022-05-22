@@ -2,6 +2,7 @@
 #define protocol_h
 
 #define SIZEOF_INT 4
+#define BUFFSIZE 1024
 
 #define ISCOMMAND 1
 #define ISFILE 2
