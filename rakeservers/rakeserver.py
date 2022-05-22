@@ -1,9 +1,10 @@
-from operator import truediv
 import subprocess
 import ctypes
 import socket
 import os
 import pathlib
+from typing import final
+from xxlimited import new
 
 HOST = ""
 PORT = 0
@@ -44,6 +45,7 @@ def execute_all_commands():
 	return True
 
 def main():
+	current_files = get_file_paths_in_cwd()
 	# AF_INET = IPv4, SOCK_STREM = TCP
 	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 		s.bind((HOST, PORT))
@@ -125,7 +127,8 @@ def main():
 					if no_error == True:
 						if len(files_post_exec) - len(files_pre_exec) != 0:
 							new_files = diff(files_pre_exec, files_post_exec)
-							print("Some file created, sending back to client, number of new files = {newfiles}")
+							print("Some file created, sending back to client, number of new files = ")
+							print(*new_files, sep = ", ")
 							for path in new_files:
 								print(f"Sending created file {path} to client")
 								# First send ISFILE to inform client a file is coming
@@ -143,13 +146,14 @@ def main():
 				
 								# Fourth send size of file
 								file_size = pathlib.Path(file_name).stat().st_size
-								# print(f"Sending file size = {file_size}, byte form:")
-								# print(bytes(ctypes.c_uint32(file_size)))
-								# conn.sendall(bytes(ctypes.c_uint32(file_size)))
-								print("Testing python primative int with to_bytes()")
-								file_size_bytes = file_size.to_bytes(4, byteorder='little')
-								print(f"Sending file size = {file_size}, byte form with to_bytes(4, byteorder='little'): {file_size_bytes}")
-								conn.sendall(file_size_bytes)
+								print(f"Sending file size = {file_size}, byte form:")
+								print(bytes(ctypes.c_uint32(file_size)))
+								conn.sendall(bytes(ctypes.c_uint32(file_size)))
+
+								# print("Testing python primative int with to_bytes()")
+								# file_size_bytes = file_size.to_bytes(4, byteorder='little')
+								# print(f"Sending file size = {file_size}, byte form with to_bytes(4, byteorder='little'): {file_size_bytes}")
+								# conn.sendall(file_size_bytes)
 
 								# Send file
 								with open(file_name, "rb") as fd:
@@ -173,6 +177,7 @@ def main():
 						# Inform client all commands have been executed.
 						print("SENDING NO ERROR")
 						conn.sendall(bytes(ctypes.c_uint32(ALLCOMMANDEXECUTED)))
+
 					else:
 						# Inform client an error occured
 						print("SENDING ERROR")
@@ -183,8 +188,11 @@ def main():
 					for fd in ALL_REQUIRED_FILES:
 						os.remove(fd.name)
 					ALL_REQUIRED_FILES.clear()
-						
-					
+
+					final_files = get_file_paths_in_cwd()
+					new_files = diff(current_files, final_files)
+					for path in new_files:
+						os.remove(path)
 
 		for command in ALL_COMMANDS:
 			print(command)
