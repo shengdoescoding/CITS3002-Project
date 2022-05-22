@@ -226,6 +226,22 @@ int main(int argc, char const *argv[]) {
 	parse_rf(rake_file_address);
 	free(rake_file_address);
 
+	// // Debug
+	// for (int i = 0; i < rake_file.total_actionsets; i++) {
+	// 	for (int j = 0; j < rake_file.actsets[i]->total_actions; j++) {
+	// 		printf("rakefile actionset %i, action %i, command = %s\n", i, j, rake_file.actsets[i]->acts[j]->command);
+	// 		printf("rakefile actionset %i, action %i, remote = %i\n", i, j, rake_file.actsets[i]->acts[j]->remote);
+	// 		for (int k = 0; k < rake_file.actsets[i]->acts[j]->total_files; k++) {
+	// 			printf("rakefile actionset %i, action %i required files = %s\n", i, j, rake_file.actsets[i]->acts[j]->required_files[k]);
+	// 		}
+	// 	}
+	// }
+	// for (int i = 0; i < rake_file.total_hosts; i++) {
+	// 	printf("rakefile hosts = %s\n", rake_file.hosts[i]);
+	// }
+	// printf("rakefile port = %i\n", rake_file.port);
+
+
 	// execute_actionset();
 
 	fd_set master;
@@ -510,21 +526,6 @@ int main(int argc, char const *argv[]) {
 			}
 		}
 	}
-
-	// // Debug
-	// for (int i = 0; i < rake_file.total_actionsets; i++) {
-	// 	for (int j = 0; j < rake_file.actsets[i]->total_actions; j++) {
-	// 		printf("rakefile actionset %i, action %i, command = %s\n", i, j, rake_file.actsets[i]->acts[j]->command);
-	// 		printf("rakefile actionset %i, action %i, remote = %i\n", i, j, rake_file.actsets[i]->acts[j]->remote);
-	// 		for (int k = 0; k < rake_file.actsets[i]->acts[j]->total_files; k++) {
-	// 			printf("rakefile actionset %i, action %i required files = %s\n", i, j, rake_file.actsets[i]->acts[j]->required_files[k]);
-	// 		}
-	// 	}
-	// }
-	// for (int i = 0; i < rake_file.total_hosts; i++) {
-	// 	printf("rakefile hosts = %s\n", rake_file.hosts[i]);
-	// }
-	// printf("rakefile port = %i\n", rake_file.port);
 
 	// Clean up
 	for (int i = 0; i < rake_file.total_actionsets; i++) {
