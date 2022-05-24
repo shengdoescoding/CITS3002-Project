@@ -25,7 +25,7 @@ void free_words(char **words);
 #include <sys/wait.h>
 #include <unistd.h>
 #include <errno.h>
-#define MAX_LINE_LEN 298
+#define MAX_LINE_LEN 500 // Big enough for ./genrake.sh 50
 
 struct Rake_File {
 	int port;
