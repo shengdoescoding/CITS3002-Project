@@ -290,7 +290,8 @@ def main():
                         print(f"Sending FILERECIEVED")
                         key.fileobj.sendall(FILERECIEVED.to_bytes(4, 'big'))
 
-                    if all_act_sent == False and actsets_finished == False and lowest_load_socket == key.fileobj:
+                if event_bitmask & selectors.EVENT_WRITE and lowest_load_socket == key.fileobj:
+                    if all_act_sent == False and actsets_finished == False:
                         if rake_file.actsets[current_actset].acts[current_act].remote == True and total_quries == 0:
                             if rake_file.actsets[current_actset].acts[current_act].total_files == 0:
                                 print(
