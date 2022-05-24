@@ -354,8 +354,6 @@ int main(int argc, char * const argv[]) {
                 exit(EXIT_FAILURE);
         }
     }
-    
-    
 
 	init_rake_file();
 	parse_rf();
