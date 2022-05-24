@@ -1,3 +1,4 @@
+import subprocess
 import socket
 import selectors
 import sys
@@ -141,7 +142,10 @@ def main():
                 action = Action()
                 if stripped_line.startswith('remote-'):
                     action.remote = True
-                action.command = stripped_line.split('remote-', 1)[1]
+                    action.command = stripped_line.split('remote-', 1)[1]
+                else:
+                    action.remote = False
+                    action.command = stripped_line
 
                 rake_file.actsets[CURRENT_ACTSET_INDEX].total_actions += 1
                 CURRENT_ACT_INDEX = rake_file.actsets[CURRENT_ACTSET_INDEX].total_actions - 1
@@ -338,6 +342,16 @@ def main():
                             lowest_load = __INT32_MAX__
                             for key in load_quried:
                                 load_quried[key] = False
+                        elif rake_file.actsets[current_actset].acts[current_act].remote == False:
+                            command_split = rake_file.actsets[current_actset].acts[current_act].command.split()
+                            childp = subprocess.Popen(command_split)
+                            exit_status = childp.wait()
+                            if exit_status == 1:
+                                command_exec_error = True
+                            current_act += 1
+                            if current_act == rake_file.actsets[current_actset].total_actions:
+                                all_act_sent = True
+                            
     except KeyboardInterrupt:
         print("Caught keyboard interrupt, exiting")
     finally:
