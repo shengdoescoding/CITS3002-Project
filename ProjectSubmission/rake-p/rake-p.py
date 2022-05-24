@@ -48,25 +48,6 @@ ALLCOMMANDSSENT = 6
 ALLCOMMANDEXECUTED = 7
 FAILEDCOMMANDEXECUTION = 8
 
-# def service_connection(sel_key, event_mask):
-# 	sock = sel_key.fileobj
-# 	data = sel_key.data
-# 	# & is bitwise AND
-# 	if event_mask & selectors.EVENT_READ:
-# 		recv_data = sock.recv(1024)
-# 		if recv_data:
-# 			data.outb += recv_data
-# 		else:
-# 			print(f"Closing connection to {data.addr}")
-# 			sel.unregister(sock)
-# 			sock.close()
-# 	if event_mask & selectors.EVENT_WRITE:
-# 		if data.outb:
-# 			print(f"Echoing {data.outb!r} to {data.addr}")
-# 			sent = sock.send(data.outb)
-# 			data.outb = data.outb[sent:]	# Python slicing notation, s[m:n], returns a string starting at m up to but not including n, blank means start/end.
-
-
 def send_command(socket, command):
     # First send ISCOMMAND
     socket.sendall(ISCOMMAND.to_bytes(4, 'big'))
@@ -108,14 +89,8 @@ def send_file(socket, filename):
 
 
 def main():
-    if len(sys.argv) <= 1 or len(sys.argv) > 2:
-        print("Fatal: must provide rakefile")
-        sys.exit(-1)
-
     rake_file = Rake_File()
-    rake_file_address = sys.argv[1]
-
-    with open(rake_file_address, 'r') as fd:
+    with open("Rakefile", 'r') as fd:
         lines = fd.readlines()
         for line in lines:
             stripped_line = line.strip()

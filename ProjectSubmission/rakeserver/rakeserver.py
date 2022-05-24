@@ -4,8 +4,8 @@ import socket
 import os
 import pathlib
 
-HOST = ""
-PORT = 0
+HOST = input("Please provide host ip address: ")
+PORT = eval(input("Please provide port number: "))
 ALL_COMMANDS = []
 ALL_REQUIRED_FILES = []
 
