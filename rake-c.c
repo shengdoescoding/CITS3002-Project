@@ -163,39 +163,80 @@ void parse_rf(const char *rake_file_address) {
 	fclose(fp);
 }
 
-void execute_actionset() {
+/** This function will execute all commands in an actionset
+* in parallel. It is commented out because it is not used,
+* parts of it has been adapted into the execute_command(const char **command)
+* function.
+**/
+// void execute_actionset() {
+// 	pid_t PID;
+// 	int child_exit_status;
+// 	for (int i = 0; i < rake_file.total_actionsets; i++) {
+// 		int terminated_child = 0;
+// 		for (int j = 0; j < rake_file.actsets[i]->total_actions; j++) {
+// 			int nwords;
+// 			char **command_args = strsplit(rake_file.actsets[i]->acts[j]->command, &nwords);
+// 			char *prog_name = command_args[0];
+// 			command_args[nwords] = NULL;
+// 			nwords++;
+// 			PID = fork();
+// 			if (PID == 0) {
+// 				printf("Child PID = %d\n", getpid());
+// 				errno = 0;
+// 				execvp(prog_name, command_args);
+// 				if(errno != 0){
+// 					perror("Fatal: execvp failed!");
+// 				}
+// 			} else if (PID > 0) {
+// 				free_words(command_args);
+// 			} else {
+// 				perror("Failed to fork");
+// 			}
+// 		}
+// 		while(terminated_child != rake_file.actsets[i]->total_actions){
+// 			if(wait(&child_exit_status)){
+// 				// if fail do something... 
+// 				printf("Child process exited with %d status\n", WEXITSTATUS(child_exit_status));
+// 				terminated_child++;
+// 			}
+// 		}
+// 	}
+// }
+
+int execute_command(char *command) {
 	pid_t PID;
 	int child_exit_status;
-	for (int i = 0; i < rake_file.total_actionsets; i++) {
-		int terminated_child = 0;
-		for (int j = 0; j < rake_file.actsets[i]->total_actions; j++) {
-			int nwords;
-			char **command_args = strsplit(rake_file.actsets[i]->acts[j]->command, &nwords);
-			char *prog_name = command_args[0];
-			command_args[nwords] = NULL;
-			nwords++;
-			PID = fork();
-			if (PID == 0) {
-				printf("Child PID = %d\n", getpid());
-				errno = 0;
-				execvp(prog_name, command_args);
-				if(errno != 0){
-					perror("Fatal: execvp failed!");
-				}
-			} else if (PID > 0) {
-				free_words(command_args);
-			} else {
-				perror("Failed to fork");
-			}
-		}
-		while(terminated_child != rake_file.actsets[i]->total_actions){
-			if(wait(&child_exit_status)){
-				// if fail do something... 
-				printf("Child process exited with %d status\n", WEXITSTATUS(child_exit_status));
-				terminated_child++;
-			}
-		}
-	}
+    int nwords;
+    char **command_args = strsplit(command, &nwords);
+    char *prog_name = command_args[0];
+    command_args[nwords] = NULL;
+    nwords++;
+    PID = fork();
+    if (PID == 0) {
+        printf("Child PID = %d\n", getpid());
+        errno = 0;
+        execvp(prog_name, command_args);
+        if(errno != 0){
+            perror("Fatal: execvp failed!");
+            exit(EXIT_FAILURE);
+        }
+        exit(EXIT_SUCCESS);
+    }
+    else if (PID > 0) {
+        free_words(command_args);
+        if(wait(&child_exit_status) >= 0){
+            if (WIFEXITED(child_exit_status)){
+                return WEXITSTATUS(child_exit_status);
+            }
+        }
+    }
+    else {
+        perror("Failed to fork");
+        exit(EXIT_FAILURE);
+    }
+    
+    // return failure if function reached this point without returning
+    return 1;
 }
 
 char *strip_port(char *host){
@@ -524,6 +565,18 @@ int main(int argc, char const *argv[]) {
 					}
 				}
 			}
+            else if (rake_file.actsets[current_actset]->acts[current_act]->remote == false){
+                int status = execute_command(rake_file.actsets[current_actset]->acts[current_act]->command);
+                if (status != 0){
+                    command_exec_error = true;
+                }
+                // Reset checkers for next command
+				current_act++;
+				if(current_act == rake_file.actsets[current_actset]->total_actions){
+					all_act_sent = true;
+				}
+            }
+            
 		}
 	}
 
